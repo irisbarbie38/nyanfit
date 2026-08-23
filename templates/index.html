@@ -20,6 +20,13 @@
     <section class="dynamic exercises-layer" aria-label="Treino de hoje">
       {% for ex in exercises %}
       <button type="button" class="hotspot exercise" data-exercise="{{ ex[0] }}" data-sets="{{ ex[5] }}">
+        <img
+          class="exercise-icon"
+          src="{{ url_for('static', filename='img/v61/' ~ ex[0] ~ '.png') }}"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        >
         <span class="exercise-title">{{ ex[1] }}</span>
         <span class="exercise-meta">{{ ex[2] }} <i>•</i> {{ ex[3] }} <i>•</i> {{ ex[4] }}</span>
         <span class="count" data-count="{{ ex[0] }}">0/{{ ex[5] }}</span>
