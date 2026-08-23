@@ -187,6 +187,33 @@ def create_app():
                 "detail": str(exc),
             }), 500
 
+    @app.get("/api/workouts/<int:workout_id>")
+    @login_required
+    def get_workout(workout_id):
+        workout = db.get_or_404(WorkoutSession, workout_id)
+
+        if workout.user_id != session["user_id"]:
+            return jsonify({"error": "forbidden"}), 403
+
+        return jsonify({
+            "id": workout.id,
+            "focus": workout.focus,
+            "started_at": workout.started_at.isoformat(),
+            "ended_at": workout.ended_at.isoformat() if workout.ended_at else None,
+            "sets": [
+                {
+                    "id": item.id,
+                    "exercise": item.exercise,
+                    "set_number": item.set_number,
+                    "weight": item.weight,
+                    "reps": item.reps,
+                    "rir": item.rir,
+                }
+                for item in workout.sets
+            ],
+        })
+
+
     @app.post("/api/workouts/<int:workout_id>/sets")
     @login_required
     def add_set(workout_id):
