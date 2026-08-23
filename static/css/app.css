@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+:root{
+  --bg:#070719; --panel:#10102a; --panel2:#151535; --line:#383365;
+  --pink:#ff4fa3; --purple:#9b68ff; --cyan:#55d9ff; --green:#37e889;
+  --text:#f5f1ff; --muted:#a9a3c9;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:
+ radial-gradient(circle at 15% 10%,#23124b 0,transparent 26%),
+ radial-gradient(circle at 90% 25%,#151a4d 0,transparent 30%),
+ var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.14;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:28px 28px}
+.topbar{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:sticky;top:0;z-index:20;background:#08081bea;border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}
+.brand{font:18px "Press Start 2P",monospace;letter-spacing:-1px;color:#fff}
+.brand span{color:var(--pink)}
+.logout{font:12px "Press Start 2P",monospace;color:var(--purple);text-decoration:none}
+.app-shell{max-width:720px;margin:auto;padding:0 14px 110px}
+.hero{min-height:230px;padding:25px 8px 20px;position:relative;overflow:hidden}
+.stars{font-family:monospace;color:#fff;font-size:18px;opacity:.8}
+.nyan-art{font-size:64px;letter-spacing:-16px;filter:drop-shadow(0 0 10px #ff4fa3);margin:12px 0}
+.hero h1{font:24px "Press Start 2P",monospace;color:var(--pink);text-shadow:3px 3px #5d164b;margin:0 0 10px}
+.hero p{font-family:"VT323",monospace;font-size:23px;color:#ddd7ef;margin:0;text-transform:capitalize}
+.pixel-border{border:2px solid var(--line);box-shadow:4px 4px 0 #05050f, inset 0 0 0 1px #191942}
+.focus-card{background:linear-gradient(90deg,#11112e,#181331);border-radius:12px;padding:15px 16px;margin:4px 0 28px;display:flex;gap:12px;align-items:center}
+.focus-card span{font:11px "Press Start 2P",monospace;color:var(--purple)}
+.focus-card strong{font-size:17px}
+.section-title{font:13px "Press Start 2P",monospace;color:var(--purple);margin:24px 4px 12px}
+.exercise-card{width:100%;display:flex;align-items:center;text-align:left;gap:13px;padding:13px;margin:8px 0;background:linear-gradient(100deg,#10102a,#12122d);border:2px solid #282552;border-radius:12px;color:var(--text);box-shadow:3px 3px #05050f;cursor:pointer}
+.exercise-card:active{transform:translate(2px,2px);box-shadow:1px 1px #05050f}
+.exercise-icon{font-size:29px;width:45px;text-align:center}
+.exercise-main{flex:1;min-width:0}
+.exercise-main b{display:block;font-size:15px;margin-bottom:5px}
+.exercise-main span{display:block;color:var(--muted);font-family:"VT323";font-size:19px}
+.exercise-card>strong{font-family:"VT323";font-size:20px;color:var(--pink);background:#35123c;padding:7px 8px;border-radius:7px}
+button{font:inherit}
+.primary{border:0;cursor:pointer;color:#fff;background:linear-gradient(90deg,#ff3f9e,#b84cff);box-shadow:0 5px 0 #5d164b}
+.primary:active{transform:translateY(3px);box-shadow:0 2px 0 #5d164b}
+.big{width:100%;padding:17px;border-radius:10px;font:14px "Press Start 2P",monospace;margin:18px 0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);background:#10102a;border-radius:12px;padding:17px 8px}
+.stats div{text-align:center;border-right:1px solid var(--line)}
+.stats div:last-child{border:0}
+.stats b{display:block;font:22px "VT323";color:#fff}
+.stats small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.history-row{display:flex;justify-content:space-between;gap:12px;padding:13px 4px;border-bottom:1px solid #25234a}
+.history-row b,.history-row span{display:block}
+.history-row span{color:var(--muted);font:18px "VT323"}
+.history-row small{color:#77739a}
+.empty{color:var(--muted);padding:20px;text-align:center}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:72px;display:flex;justify-content:space-around;z-index:30;background:#0b0a20f5;border-top:1px solid var(--line);backdrop-filter:blur(12px);padding-bottom:env(safe-area-inset-bottom)}
+.bottom-nav button{background:none;border:0;color:#756ea8;font-size:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer}
+.bottom-nav button.active{color:var(--pink)}
+.bottom-nav small{font-size:10px}
+.modal{position:fixed;inset:0;background:#02020bcc;z-index:50;display:flex;align-items:flex-end}
+.modal.hidden,.timer.hidden{display:none}
+.modal-sheet{width:100%;max-height:92vh;overflow:auto;background:#0d0d25;border-top:2px solid var(--purple);border-radius:18px 18px 0 0;padding:14px 14px 35px}
+.modal-head{display:flex;justify-content:space-between;align-items:center;font:13px "Press Start 2P";margin-bottom:18px}
+.modal-head button{border:0;background:none;color:#fff;font-size:20px}
+.workout-exercise{background:#11112d;border:1px solid #302c59;border-radius:12px;padding:13px;margin:10px 0}
+.exercise-head{display:flex;justify-content:space-between;gap:10px;align-items:start}
+.exercise-head b,.exercise-head span{display:block}
+.exercise-head span{color:var(--muted);font:18px "VT323"}
+.pill{font:11px "Press Start 2P";color:var(--pink)}
+.set-row{display:grid;grid-template-columns:32px 1fr 1fr 1fr 42px;gap:6px;align-items:center;margin-top:9px}
+.set-row>span{font:18px "VT323";color:var(--purple)}
+input{width:100%;background:#08081c;color:#fff;border:1px solid #3a3568;border-radius:7px;padding:10px;font-size:14px;outline:none}
+input:focus{border-color:var(--pink)}
+.set-row button{background:#271941;color:var(--pink);border:1px solid #5d306d;border-radius:7px;height:40px;cursor:pointer}
+.set-row.done{opacity:.55}
+.set-row.done button{background:#0b3a2b;color:var(--green)}
+.timer{position:fixed;z-index:70;left:50%;bottom:88px;transform:translateX(-50%);width:min(92vw,420px);background:#0c0b24;border:2px solid var(--pink);border-radius:15px;box-shadow:0 0 30px #ff4fa355,5px 5px #03030a;padding:16px;text-align:center}
+.timer-cat{font-size:24px}
+.timer-label{font:11px "Press Start 2P";color:var(--purple);margin-top:7px}
+#timerValue{font:62px "VT323";color:#fff;line-height:1}
+.timer-actions{display:flex;gap:7px}
+.timer-actions button{flex:1;background:#191638;color:#fff;border:1px solid #40396d;border-radius:8px;padding:10px}
+#toast{position:fixed;z-index:100;left:50%;bottom:95px;transform:translate(-50%,20px);opacity:0;background:#f5f1ff;color:#100d24;padding:11px 15px;border-radius:8px;font-weight:700;transition:.2s;pointer-events:none}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+.auth-body{display:grid;place-items:center;padding:20px}
+.auth-card{width:min(420px,100%);background:#0d0d25;border-radius:16px;padding:28px}
+.nyan-mini{text-align:center;font-size:50px;margin-bottom:15px}
+.auth-card .brand{text-align:center;font-size:20px}
+.muted{color:var(--muted);text-align:center}
+.auth-card label{display:block;margin:16px 0 6px;font-size:13px;color:#c5bfdc}
+.error{background:#45182f;color:#ff9acb;padding:10px;border-radius:8px;margin:14px 0}
+.text-link{display:block;text-align:center;color:var(--purple);margin-top:20px;text-decoration:none}
+@media(min-width:700px){.hero{min-height:260px}.bottom-nav{max-width:720px;left:50%;transform:translateX(-50%);border-radius:16px 16px 0 0}}
+
+.user-chip{font:10px "VT323";color:#bfb8de;margin-left:auto;margin-right:10px}
+.select-wrap{margin:0 0 10px}
+select{width:100%;background:#10102a;color:#fff;border:2px solid #383365;border-radius:9px;padding:13px;font-size:14px}
+.chart-card{background:#10102a;border-radius:12px;padding:12px;margin-top:8px}
+.goal-card{margin-top:10px;padding:14px;border-radius:10px;background:#12112e;color:#ddd7ef;line-height:1.5}
+.goal-card b{color:var(--pink)}
+.green{color:var(--green)}
+
+.active-session{position:sticky;top:60px;z-index:15;margin:10px 0 16px;padding:10px 11px;background:#12112e;border:2px solid var(--green);border-radius:10px;box-shadow:3px 3px #05050f;display:flex;align-items:center;gap:9px}
+.active-session.hidden{display:none}
+.active-session span{font:10px "Press Start 2P";color:var(--green);flex:1}
+.active-session span i{display:inline-block;width:7px;height:7px;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 1s steps(2) infinite}
+.active-session b{font:21px "VT323";white-space:nowrap}
+.active-session button{background:#271941;border:1px solid #5d306d;color:#ff7fba;border-radius:6px;padding:8px;font:9px "Press Start 2P"}
+@keyframes blink{50%{opacity:.25}}
+.summary-sheet{width:min(560px,100%);margin:auto;background:#0d0d25;border:2px solid var(--pink);border-radius:18px;padding:30px 18px 22px;text-align:center;box-shadow:0 0 45px #ff4fa333}
+.completion-cat{font-size:64px;line-height:1;margin-bottom:15px}
+.complete-title{font:18px "Press Start 2P";color:var(--pink);line-height:1.5}
+.complete-sub{font:21px "VT323";color:#c5bfdc;margin:8px 0 20px}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);background:#11112d;border:1px solid #302c59;border-radius:12px;padding:15px 5px}
+.summary-grid div{border-right:1px solid #302c59}
+.summary-grid div:last-child{border:0}
+.summary-grid b{display:block;font:27px "VT323";color:#fff}
+.summary-grid small{color:var(--muted)}
+.complete-message{font-size:14px;line-height:1.6;color:#c5bfdc;margin:18px 0 5px}
+.complete-message b{color:var(--pink)}

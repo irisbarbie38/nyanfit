@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#09081b">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <title>{{ "Criar conta" if register else "Entrar" }} — NyanFit</title>
+</head>
+<body class="auth-body">
+  <main class="auth-card pixel-border">
+    <div class="nyan-mini">🐱🌈</div>
+    <div class="brand">NYAN<span>FIT</span></div>
+    <p class="muted">Seu treino de glúteos, em modo pixel.</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="post">
+      <label>Usuário</label>
+      <input name="username" autocomplete="username" required minlength="3">
+      <label>Senha</label>
+      <input name="password" type="password" autocomplete="{{ 'new-password' if register else 'current-password' }}" required minlength="8">
+      <button class="primary big" type="submit">{{ "CRIAR CONTA" if register else "ENTRAR" }}</button>
+    </form>
+    <a class="text-link" href="{{ url_for('login' if register else 'register') }}">
+      {{ "Já tenho uma conta" if register else "Criar uma conta" }}
+    </a>
+  </main>
+</body>
+</html>

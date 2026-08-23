@@ -1,0 +1,331 @@
+
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09081b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+<title>NyanFit</title>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">NYAN<span>FIT</span></div>
+  <div class="user-chip">{{ current_user }}</div>
+  <a class="logout" href="{{ url_for('logout') }}">SAIR</a>
+</header>
+
+<main class="app-shell">
+<section class="hero">
+  <div class="stars">✦ · ✧ · ✦ · ✧ · ✦ · ✧</div>
+  <div class="nyan-art">🌈🐱</div>
+  <h1>BOM TREINO!</h1>
+  <p id="today"></p>
+</section>
+
+<section class="focus-card pixel-border">
+  <span>⭐ FOCO DO DIA</span><strong id="focusName"></strong>
+</section>
+
+<section id="workout-section">
+  <div class="section-title">💗 TREINO DE HOJE</div>
+  <div id="exerciseList"></div>
+  <button class="primary big" onclick="startWorkout()">🐱 INICIAR TREINO 🌈</button>
+<div id="activeSessionBar" class="active-session hidden">
+  <span><i></i> TREINO EM ANDAMENTO</span>
+  <b id="sessionElapsed">00:00</b>
+  <button onclick="finishWorkout()">FINALIZAR</button>
+</div>
+</section>
+
+<section>
+  <div class="section-title">📊 RESUMO</div>
+  <div class="stats pixel-border">
+    <div><b id="statSets">0</b><small>Séries</small></div>
+    <div><b id="statVolume">0</b><small>Volume (kg)</small></div>
+    <div><b id="statSessions">0</b><small>Sessões</small></div>
+  </div>
+</section>
+
+<section id="progress-section">
+  <div class="section-title">📈 PROGRESSÃO</div>
+  <div class="select-wrap">
+    <select id="exerciseSelect" onchange="loadChart()"></select>
+  </div>
+  <div class="chart-card pixel-border"><canvas id="progressChart"></canvas></div>
+  <div id="nextGoal" class="goal-card pixel-border"></div>
+</section>
+
+<section id="history-section">
+  <div class="section-title">📝 HISTÓRICO</div>
+  <div id="history"></div>
+</section>
+</main>
+
+<nav class="bottom-nav">
+  <button class="active" onclick="topPage()">🐱<small>Início</small></button>
+  <button onclick="scrollToId('workout-section')">🏋️<small>Treino</small></button>
+  <button onclick="scrollToId('history-section')">📋<small>Histórico</small></button>
+  <button onclick="scrollToId('progress-section')">📈<small>Progressão</small></button>
+</nav>
+
+<div id="summaryModal" class="modal hidden">
+  <div class="summary-sheet">
+    <div class="completion-cat">🐱🌈</div>
+    <div class="complete-title">TREINO CONCLUÍDO!</div>
+    <div class="complete-sub" id="summaryWorkout"></div>
+    <div class="summary-grid">
+      <div><b id="sumDuration">00:00</b><small>Tempo</small></div>
+      <div><b id="sumSets">0</b><small>Séries</small></div>
+      <div><b id="sumVolume">0</b><small>Volume</small></div>
+    </div>
+    <div class="complete-message" id="summaryMessage"></div>
+    <button class="primary big" onclick="closeSummary()">✓ PRONTO</button>
+  </div>
+</div>
+
+<div id="workoutModal" class="modal hidden">
+  <div class="modal-sheet">
+    <div class="modal-head"><button onclick="closeModal()">←</button><b id="modalTitle">Treino</b><button onclick="closeModal()">✕</button></div>
+    <div id="workoutContent"></div>
+  </div>
+</div>
+
+<div id="timer" class="timer hidden">
+  <div class="timer-cat">🐱🌈</div>
+  <div class="timer-label">DESCANSO</div>
+  <div id="timerValue">02:30</div>
+  <div class="timer-actions">
+    <button onclick="adjustTimer(-30)">−30s</button>
+    <button onclick="skipTimer()">PULAR</button>
+    <button onclick="adjustTimer(30)">+30s</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const workouts = {{ workouts|tojson }};
+const workoutModalEl = document.getElementById("workoutModal");
+const summaryModalEl = document.getElementById("summaryModal");
+
+const day = Math.min((new Date().getDay()+6)%7, 4);
+const workout = workouts[day];
+let timerEndsAt = 0, timerInterval = null, chart = null, progression = {};
+let activeSessionId = null, sessionStartedAt = null, sessionClock = null;
+
+
+document.getElementById("today").textContent =
+  new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"numeric",month:"long"}).format(new Date());
+document.getElementById("focusName").textContent = workout.name;
+
+document.getElementById("exerciseList").innerHTML = workout.exercises.map((e,i)=>`
+<button class="exercise-card" onclick="startWorkout()">
+  <div class="exercise-icon">${["🏋️","🦾","✨"][i]}</div>
+  <div class="exercise-main"><b>${e.name}</b><span>${e.sets} séries · ${e.min_reps}–${e.max_reps} reps · RIR ${e.rir}</span></div>
+  <strong>0/${e.sets}</strong>
+</button>`).join("");
+
+async function loadStats(){
+  const [s,h,p] = await Promise.all([fetch("/api/stats"),fetch("/api/history"),fetch("/api/progression")]);
+  const stats=await s.json(), history=await h.json(); progression=await p.json();
+  document.getElementById("statSets").textContent=stats.sets;
+  document.getElementById("statVolume").textContent=Math.round(stats.volume).toLocaleString("pt-BR");
+  document.getElementById("statSessions").textContent=stats.sessions;
+  historyEl(history);
+  const names=Object.keys(progression);
+  document.getElementById("exerciseSelect").innerHTML=names.map(n=>`<option>${n}</option>`).join("");
+  loadChart();
+}
+function historyEl(history){
+  document.getElementById("history").innerHTML=history.slice(0,12).map(x=>`
+    <div class="history-row">
+      <div><b>${x.exercise_name}</b><span>${x.weight} kg × ${x.reps} · RIR ${x.rir??"—"}</span></div>
+      <small>${new Date(x.created_at).toLocaleDateString("pt-BR")}</small>
+    </div>`).join("") || '<div class="empty">Ainda não há registros.</div>';
+}
+async function loadChart(){
+  const name=exerciseSelect.value, points=progression[name]||[];
+  const ctx=document.getElementById("progressChart");
+  if(chart) chart.destroy();
+  chart=new Chart(ctx,{type:"line",data:{labels:points.map(x=>x.date),datasets:[{
+    label:"Melhor carga (kg)",data:points.map(x=>x.weight),tension:.25,fill:true
+  }]},options:{responsive:true,plugins:{legend:{display:false}},scales:{
+    x:{ticks:{color:"#a9a3c9"},grid:{color:"#242144"}},y:{ticks:{color:"#a9a3c9"},grid:{color:"#242144"}}
+  }}});
+  const last=points.at(-1);
+  const prev=points.at(-2);
+  let msg="Registre seu primeiro treino para criar uma meta.";
+  if(last){
+    const ex=workouts.flatMap(w=>w.exercises).find(e=>e.name===name);
+    const reps=last.reps;
+    const nextWeight = reps >= ex.max_reps ? last.weight + (last.weight>=60?2.5:1.25) : last.weight;
+    msg = reps >= ex.max_reps
+      ? `🚀 Próxima meta: <b>${nextWeight} kg</b> · voltar para ${ex.min_reps}–${ex.max_reps} reps.`
+      : `🎯 Próxima meta: repetir <b>${last.weight} kg</b> e tentar chegar a ${ex.max_reps} reps.`;
+    if(prev && last.weight>prev.weight) msg += ` <span class="green">↑ ${Math.round(last.weight-prev.weight)} kg desde a sessão anterior.</span>`;
+  }
+  document.getElementById("nextGoal").innerHTML=msg;
+}
+
+async function startWorkout(){
+  if(!activeSessionId){
+    const res = await fetch("/api/session/start",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({workout_day:workout.day})});
+    const data = await res.json();
+    if(!res.ok){toast("Não foi possível iniciar o treino.");return}
+    activeSessionId=data.session_id;
+    sessionStartedAt=data.started_at;
+    startSessionClock();
+    document.getElementById("activeSessionBar").classList.remove("hidden");
+  }
+  modalTitle.textContent=workout.name;
+  workoutContent.innerHTML=workout.exercises.map((e,i)=>`
+  <article class="workout-exercise">
+    <div class="exercise-head"><div><b>${e.name}</b><span>${e.min_reps}–${e.max_reps} reps · RIR ${e.rir}</span></div><span class="pill">${e.sets} séries</span></div>
+    <div class="sets">${Array.from({length:e.sets},(_,n)=>`
+      <div class="set-row" id="set-${i}-${n}">
+        <span>S${n+1}</span><input type="number" step=".5" min="0" placeholder="kg" id="w-${i}-${n}">
+        <input type="number" min="0" placeholder="reps" id="r-${i}-${n}">
+        <input type="number" min="0" max="5" placeholder="RIR" id="q-${i}-${n}">
+        <button onclick="logSet(${i},${n})">✓</button>
+      </div>`).join("")}</div>
+  </article>`).join("");
+  workoutModalEl.classList.remove("hidden");
+}
+async function logSet(i,n){
+  const e=workout.exercises[i], weight=document.getElementById(`w-${i}-${n}`).value,
+        reps=document.getElementById(`r-${i}-${n}`).value, rir=document.getElementById(`q-${i}-${n}`).value;
+  if(!reps){toast("Coloque as repetições.");return}
+  const res=await fetch("/api/log",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({workout_day:workout.day,session_id:activeSessionId,exercise_name:e.name,set_number:n+1,weight,reps,rir})});
+  if(res.ok){
+    document.getElementById(`set-${i}-${n}`).classList.add("done");
+    startTimer(e.rest); 
+function startSessionClock(){
+  clearInterval(sessionClock);
+  sessionClock=setInterval(()=>{
+    if(!sessionStartedAt)return;
+    const sec=Math.max(0,Math.floor((Date.now()-new Date(sessionStartedAt).getTime())/1000));
+    document.getElementById("sessionElapsed").textContent=formatDuration(sec);
+  },1000);
+}
+function formatDuration(sec){
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return h ? `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` :
+             `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+async function finishWorkout(){
+  if(!activeSessionId){return}
+  const res=await fetch("/api/session/finish",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({session_id:activeSessionId})});
+  const data=await res.json();
+  if(!res.ok){toast("Não foi possível finalizar.");return}
+  clearInterval(sessionClock);
+  document.getElementById("activeSessionBar").classList.add("hidden");
+  closeModal();
+  const s=data.summary, sess=data.session;
+  document.getElementById("summaryWorkout").textContent=workout.name;
+  document.getElementById("sumDuration").textContent=formatDuration(sess.duration_seconds||0);
+  document.getElementById("sumSets").textContent=s.sets;
+  document.getElementById("sumVolume").textContent=Math.round(s.volume).toLocaleString("pt-BR")+" kg";
+  summaryMessage.innerHTML = s.sets
+    ? `Você completou <b>${s.exercises}</b> exercícios e <b>${s.sets}</b> séries.`
+    : "Nenhuma série foi registrada nesta sessão.";
+  summaryModalEl.classList.remove("hidden");
+  activeSessionId=null; sessionStartedAt=null;
+  loadStats();
+}
+function closeSummary(){summaryModalEl.classList.add("hidden")}
+async function restoreSession(){
+  const res=await fetch("/api/session/current");
+  if(!res.ok)return;
+  const data=await res.json();
+  if(data.session_id){
+    activeSessionId=data.id;
+    sessionStartedAt=data.started_at;
+    document.getElementById("activeSessionBar").classList.remove("hidden");
+    startSessionClock();
+    toast("Treino em andamento restaurado.");
+  }
+}
+
+loadStats(); toast("Série salva.");
+  }
+}
+function startTimer(seconds){
+  timerEndsAt=Date.now()+seconds*1000;
+  document.getElementById("timer").classList.remove("hidden");
+  clearInterval(timerInterval); tickTimer();
+  timerInterval=setInterval(tickTimer,250);
+}
+function tickTimer(){
+  const left=Math.max(0,Math.ceil((timerEndsAt-Date.now())/1000));
+  const m=String(Math.floor(left/60)).padStart(2,"0"), s=String(left%60).padStart(2,"0");
+  document.getElementById("timerValue").textContent=`${m}:${s}`;
+  if(left<=0){clearInterval(timerInterval);if(navigator.vibrate)navigator.vibrate([200,100,200]);toast("Descanso terminado.");}
+}
+function adjustTimer(n){timerEndsAt+=n*1000;tickTimer()}
+function skipTimer(){clearInterval(timerInterval);document.getElementById("timer").classList.add("hidden")}
+function closeModal(){workoutModalEl.classList.add("hidden")}
+function toast(msg){const t=document.getElementById("toast");t.innerHTML=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
+function scrollToId(id){document.getElementById(id).scrollIntoView({behavior:"smooth"})}
+function topPage(){window.scrollTo({top:0,behavior:"smooth"})}
+
+
+function startSessionClock(){
+  clearInterval(sessionClock);
+  sessionClock=setInterval(()=>{
+    if(!sessionStartedAt)return;
+    const sec=Math.max(0,Math.floor((Date.now()-new Date(sessionStartedAt).getTime())/1000));
+    document.getElementById("sessionElapsed").textContent=formatDuration(sec);
+  },1000);
+}
+function formatDuration(sec){
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return h ? `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` :
+             `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+async function finishWorkout(){
+  if(!activeSessionId){return}
+  const res=await fetch("/api/session/finish",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({session_id:activeSessionId})});
+  const data=await res.json();
+  if(!res.ok){toast("Não foi possível finalizar.");return}
+  clearInterval(sessionClock);
+  document.getElementById("activeSessionBar").classList.add("hidden");
+  closeModal();
+  const s=data.summary, sess=data.session;
+  document.getElementById("summaryWorkout").textContent=workout.name;
+  document.getElementById("sumDuration").textContent=formatDuration(sess.duration_seconds||0);
+  document.getElementById("sumSets").textContent=s.sets;
+  document.getElementById("sumVolume").textContent=Math.round(s.volume).toLocaleString("pt-BR")+" kg";
+  summaryMessage.innerHTML = s.sets
+    ? `Você completou <b>${s.exercises}</b> exercícios e <b>${s.sets}</b> séries.`
+    : "Nenhuma série foi registrada nesta sessão.";
+  summaryModalEl.classList.remove("hidden");
+  activeSessionId=null; sessionStartedAt=null;
+  loadStats();
+}
+function closeSummary(){summaryModalEl.classList.add("hidden")}
+async function restoreSession(){
+  const res=await fetch("/api/session/current");
+  if(!res.ok)return;
+  const data=await res.json();
+  if(data.session_id){
+    activeSessionId=data.id;
+    sessionStartedAt=data.started_at;
+    document.getElementById("activeSessionBar").classList.remove("hidden");
+    startSessionClock();
+    toast("Treino em andamento restaurado.");
+  }
+}
+
+loadStats();
+restoreSession();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+</script>
+</body>
+</html>
