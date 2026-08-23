@@ -1,0 +1,4 @@
+Alterar a última tag JS de:
+<script src="/static/js/app.js?v=6.2.0" defer></script>
+para:
+<script type="module" src="/static/js/app.js?v=6.2.1"></script>
