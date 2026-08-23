@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#03030d">
-<meta name="description" content="NyanFit v6.1 — pixel canvas fitness tracker">
+<meta name="description" content="NyanFit v6.2 — pixel canvas fitness tracker">
 <link rel="manifest" href="/static/manifest.json">
-<title>NyanFit v6.1</title>
+<title>NyanFit v6.2</title>
 <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
@@ -14,22 +14,28 @@
   <div class="screen" id="screen" aria-label="NyanFit dashboard">
     <img class="skin" src="/static/img/v61/mockup.png" alt="">
 
-    <div class="dynamic date" id="todayLabel">{{ today.strftime('%d de %B') }}</div>
-    <div class="dynamic focus-value">{{ focus }}</div>
+    <div class="dynamic date" id="todayLabel">{{ today.strftime('%d/%m/%Y') }}</div>
 
-    <section class="dynamic exercises-layer" aria-label="Treino de hoje">
-      {% for ex in exercises %}
-      <button type="button" class="hotspot exercise" data-exercise="{{ ex[0] }}" data-sets="{{ ex[5] }}">
-        <img
-          class="exercise-icon"
-          src="{{ url_for('static', filename='img/v61/' ~ ex[0] ~ '.png') }}"
-          alt=""
-          aria-hidden="true"
-          draggable="false"
-        >
-        <span class="exercise-title">{{ ex[1] }}</span>
-        <span class="exercise-meta">{{ ex[2] }} <i>•</i> {{ ex[3] }} <i>•</i> {{ ex[4] }}</span>
-        <span class="count" data-count="{{ ex[0] }}">0/{{ ex[5] }}</span>
+    <nav class="dynamic week-picker" aria-label="Programa semanal">
+      {% for workout in workouts %}
+      <button type="button" class="day-button{% if workout.day == default_day %} active{% endif %}"
+              data-day="{{ workout.day }}">
+        <b>{{ weekdays[workout.day] }}</b><small>{{ workout.day + 1 }}</small>
+      </button>
+      {% endfor %}
+    </nav>
+
+    <div class="dynamic focus-value" id="focusValue">{{ focus }}</div>
+
+    <section class="dynamic exercises-layer" id="exerciseList" aria-label="Treino selecionado">
+      {% for ex in workouts[default_day].exercises %}
+      <button type="button" class="hotspot exercise" data-exercise="{{ ex.id }}" data-sets="{{ ex.sets }}">
+        <img class="exercise-icon"
+             src="{{ url_for('static', filename='img/v61/' ~ exercise_icon.get(ex.id, 'placeholder.svg')) }}"
+             alt="" aria-hidden="true" draggable="false">
+        <span class="exercise-title">{{ ex.name }}</span>
+        <span class="exercise-meta">{{ ex.sets }} séries <i>•</i> {{ ex.min_reps }}–{{ ex.max_reps }} reps <i>•</i> RIR {{ ex.rir }}</span>
+        <span class="count" data-count="{{ ex.id }}">0/{{ ex.sets }}</span>
         <span class="exercise-arrow">›</span>
       </button>
       {% endfor %}
@@ -42,8 +48,8 @@
     <section class="dynamic stats-layer" aria-label="Resumo semanal">
       <div><b class="stat-icon trophy">♜</b><strong>{{ sets_count }}</strong><small>Séries feitas</small></div>
       <div><b class="stat-icon flame">♨</b><strong>{{ "{:,.0f}".format(volume).replace(",", ".") }}<em> kg</em></strong><small>Volume total</small></div>
-      <div><b class="stat-icon star">★</b><strong>{{ workouts }}</strong><small>Treinos</small></div>
-      <div><b class="stat-icon check">●</b><strong>{{ (completed * 100 // workouts) if workouts else 0 }}<em>%</em></strong><small>Concluídos</small></div>
+      <div><b class="stat-icon star">★</b><strong>{{ workouts_count }}</strong><small>Treinos</small></div>
+      <div><b class="stat-icon check">●</b><strong>{{ (completed * 100 // workouts_count) if workouts_count else 0 }}<em>%</em></strong><small>Concluídos</small></div>
     </section>
 
     <section class="dynamic recent-layer" aria-label="Últimos treinos">
@@ -58,70 +64,40 @@
       {% else %}
       <div class="no-history">Ainda não há treinos registrados.</div>
       {% endfor %}
-      <a href="#" class="all-link">Ver todos os treinos <span>›</span></a>
+      <a href="/#history" class="all-link">Ver todos os treinos <span>›</span></a>
     </section>
 
     <nav class="dynamic nav-layer" aria-label="Navegação">
       <button class="nav-item active" type="button"><span class="nav-glyph home">🐱</span><small>Início</small></button>
-      <button class="nav-item" type="button"><span class="nav-glyph">♟</span><small>Treinos</small></button>
-      <button class="nav-item" type="button"><span class="nav-glyph">▣</span><small>Histórico</small></button>
-      <button class="nav-item" type="button"><span class="nav-glyph">⌁</span><small>Progressão</small></button>
-      <button class="nav-item" type="button"><span class="nav-glyph">●</span><small>Perfil</small></button>
+      <button class="nav-item" type="button" id="navWorkouts"><span class="nav-glyph">♟</span><small>Treinos</small></button>
+      <button class="nav-item" type="button" id="navHistory"><span class="nav-glyph">▣</span><small>Histórico</small></button>
+      <button class="nav-item" type="button" id="navProgress"><span class="nav-glyph">⌁</span><small>Progressão</small></button>
+      <button class="nav-item" type="button" id="navProfile"><span class="nav-glyph">●</span><small>Perfil</small></button>
     </nav>
   </div>
 </div>
+
+<script id="programData" type="application/json">{{ workouts|tojson }}</script>
 
 <div id="workoutModal" class="modal hidden">
   <div class="modal-card">
     <button class="close" id="closeModal" type="button">×</button>
     <h2>🏋 TREINO</h2>
+    <p id="modalDay">SEG · GLÚTEO PESADO</p>
     <p id="modalExercise">Elevação pélvica</p>
     <p id="modalProgress">SÉRIE 1/4</p>
-
-    <div class="timer">
-      <span id="timer">01:30</span>
-      <small>DESCANSO</small>
-    </div>
-
+    <div class="timer"><span id="timer">03:00</span><small>DESCANSO</small></div>
     <div class="inputs">
       <input id="weight" type="number" step="0.5" min="0" placeholder="kg">
       <input id="reps" type="number" min="1" placeholder="reps">
       <input id="rir" type="number" min="0" max="5" placeholder="RIR">
     </div>
-
-    <button
-      id="saveSet"
-      class="save-button"
-      type="button"
-    >
-      SALVAR SÉRIE
-    </button>
-
-    <button
-      id="startRest"
-      class="secondary hidden"
-      type="button"
-    >
-      INICIAR DESCANSO
-    </button>
-
-    <button
-      id="skipRest"
-      class="secondary hidden"
-      type="button"
-    >
-      PULAR DESCANSO
-    </button>
-
-    <button
-      id="finishWorkout"
-      class="secondary"
-      type="button"
-    >
-      FINALIZAR TREINO
-    </button>
+    <button id="saveSet" class="save-button" type="button">SALVAR SÉRIE</button>
+    <button id="startRest" class="secondary hidden" type="button">INICIAR DESCANSO</button>
+    <button id="skipRest" class="secondary hidden" type="button">PULAR DESCANSO</button>
+    <button id="finishWorkout" class="secondary" type="button">FINALIZAR TREINO</button>
   </div>
 </div>
-<script src="/static/js/app.js?v=6.1.2" defer></script>
+<script src="/static/js/app.js?v=6.2.0" defer></script>
 </body>
 </html>

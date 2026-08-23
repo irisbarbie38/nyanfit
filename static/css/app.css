@@ -12,3 +12,19 @@
     pointer-events: none;
     user-select: none;
 }
+
+/* v6.2 recovery: weekly program selector */
+.week-picker{
+    left:3.7%;top:20.15%;width:92.6%;height:3.1%;
+    display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
+}
+.day-button{
+    border:1px solid #393269;border-radius:8px;background:rgba(10,10,30,.96);
+    color:#8f83bc;display:flex;align-items:center;justify-content:center;gap:5px;
+    cursor:pointer;font-family:monospace;line-height:1;
+}
+.day-button b{font-size:clamp(9px,1.6vw,13px)}
+.day-button small{font-size:clamp(8px,1.4vw,11px);opacity:.7}
+.day-button.active{border-color:#ff4fa4;background:#40113d;color:#fff;box-shadow:0 0 0 1px #9f1d75 inset}
+.day-button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#modalDay{font-family:monospace;color:#c05bff;font-size:12px;margin-bottom:5px}
