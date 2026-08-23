@@ -1,0 +1,35 @@
+let workoutId=null, currentExercise=null, currentSet=1, timerId=null, remaining=90;
+const $=s=>document.querySelector(s);
+const modal=$("#workoutModal"), timer=$("#timer");
+
+function fmt(s){return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;}
+function tick(){timer.textContent=fmt(remaining);if(remaining<=0){clearInterval(timerId);timerId=null;if(navigator.vibrate)navigator.vibrate([180,100,180]);return}remaining--;}
+function startTimer(){clearInterval(timerId);remaining=90;tick();timerId=setInterval(tick,1000);}
+
+async function startWorkout(){
+  const r=await fetch("/api/workouts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:"Glúteo pesado"})});
+  const data=await r.json(); workoutId=data.id; localStorage.setItem("nyanfit-workout",String(workoutId));
+  modal.classList.remove("hidden"); startTimer();
+}
+async function saveSet(){
+  if(!workoutId){await startWorkout();}
+  const weight=Number($("#weight").value||0), reps=Number($("#reps").value||0), rir=$("#rir").value;
+  if(!currentExercise||!reps)return;
+  await fetch(`/api/workouts/${workoutId}/sets`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({exercise:currentExercise,set_number:currentSet,weight,reps,rir:rir===""?null:Number(rir)})});
+  const el=document.querySelector(`[data-count="${currentExercise}"]`);
+  if(el){let [n,total]=el.textContent.split("/").map(Number);el.textContent=`${Math.min(n+1,total)}/${total}`;}
+  currentSet++; $("#weight").value=""; $("#reps").value=""; $("#rir").value=""; startTimer();
+}
+async function finishWorkout(){
+  if(workoutId) await fetch(`/api/workouts/${workoutId}/finish`,{method:"POST"});
+  localStorage.removeItem("nyanfit-workout"); modal.classList.add("hidden"); clearInterval(timerId);
+}
+$("#startWorkout").addEventListener("click",startWorkout);
+$("#closeModal").addEventListener("click",()=>modal.classList.add("hidden"));
+$("#saveSet").addEventListener("click",saveSet);
+$("#finishWorkout").addEventListener("click",finishWorkout);
+document.querySelectorAll(".exercise-card").forEach(b=>b.addEventListener("click",async()=>{
+  currentExercise=b.dataset.exercise; currentSet=1; $("#modalExercise").textContent=b.querySelector("b").textContent;
+  if(!workoutId) await startWorkout(); else {modal.classList.remove("hidden");startTimer();}
+}));
+const saved=localStorage.getItem("nyanfit-workout"); if(saved) workoutId=Number(saved);
