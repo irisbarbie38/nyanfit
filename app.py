@@ -163,11 +163,29 @@ def create_app():
     @app.post("/api/workouts")
     @login_required
     def create_workout():
-        data = request.get_json(silent=True) or {}
-        workout = WorkoutSession(user_id=session["user_id"], focus=data.get("focus", "Glúteo pesado"))
-        db.session.add(workout)
-        db.session.commit()
-        return jsonify({"id": workout.id})
+        try:
+            data = request.get_json(silent=True) or {}
+            focus = str(data.get("focus") or "Glúteo pesado").strip()[:120]
+
+            workout = WorkoutSession(
+                user_id=session["user_id"],
+                focus=focus,
+                started_at=datetime.utcnow(),
+            )
+
+            db.session.add(workout)
+            db.session.commit()
+
+            return jsonify({"id": workout.id}), 201
+
+        except Exception as exc:
+            db.session.rollback()
+            app.logger.exception("Erro ao criar workout")
+
+            return jsonify({
+                "error": "Não foi possível iniciar o treino.",
+                "detail": str(exc),
+            }), 500
 
     @app.post("/api/workouts/<int:workout_id>/sets")
     @login_required

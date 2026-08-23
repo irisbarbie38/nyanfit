@@ -19,7 +19,7 @@
 
     <section class="dynamic exercises-layer" aria-label="Treino de hoje">
       {% for ex in exercises %}
-      <button class="hotspot exercise" data-exercise="{{ ex[0] }}" data-sets="{{ ex[5] }}">
+      <button type="button" class="hotspot exercise" data-exercise="{{ ex[0] }}" data-sets="{{ ex[5] }}">
         <span class="exercise-title">{{ ex[1] }}</span>
         <span class="exercise-meta">{{ ex[2] }} <i>•</i> {{ ex[3] }} <i>•</i> {{ ex[4] }}</span>
         <span class="count" data-count="{{ ex[0] }}">0/{{ ex[5] }}</span>
@@ -28,7 +28,7 @@
       {% endfor %}
     </section>
 
-    <button id="startWorkout" class="hotspot start-hotspot" aria-label="Iniciar treino">
+    <button type="button" id="startWorkout" class="hotspot start-hotspot" aria-label="Iniciar treino">
       <span>INICIAR TREINO</span>
     </button>
 
@@ -79,6 +79,6 @@
     <button id="finishWorkout" class="secondary" type="button">FINALIZAR TREINO</button>
   </div>
 </div>
-<script src="/static/js/app.js"></script>
+<script src="/static/js/app.js?v=6.1.2" defer></script>
 </body>
 </html>

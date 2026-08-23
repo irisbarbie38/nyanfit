@@ -5,16 +5,22 @@ let timerId = null;
 let remaining = 90;
 
 const $ = (selector) => document.querySelector(selector);
+
 const modal = $("#workoutModal");
 const timer = $("#timer");
 
 function fmt(seconds) {
-  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(
+    seconds % 60
+  ).padStart(2, "0")}`;
 }
 
 function setTimer(seconds) {
   remaining = Math.max(0, Number(seconds) || 0);
-  if (timer) timer.textContent = fmt(remaining);
+
+  if (timer) {
+    timer.textContent = fmt(remaining);
+  }
 }
 
 function tick() {
@@ -41,24 +47,33 @@ function startTimer() {
 }
 
 function openModal() {
-  modal?.classList.remove("hidden");
+  if (modal) {
+    modal.classList.remove("hidden");
+  }
 }
 
 function closeModal() {
-  modal?.classList.add("hidden");
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+
   clearInterval(timerId);
   timerId = null;
 }
 
 function clearWorkoutState() {
   localStorage.removeItem("nyanfit-workout");
+
   workoutId = null;
   currentExercise = null;
   currentSet = 1;
 }
 
 async function api(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    ...options,
+  });
 
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
@@ -68,8 +83,18 @@ async function api(url, options = {}) {
 
       if (body.error) {
         message = body.error;
+
+        if (body.detail) {
+          message += `: ${body.detail}`;
+        }
       }
-    } catch (_) {}
+    } catch (_) {
+      const text = await response.text();
+
+      if (text) {
+        console.error("Resposta não-JSON:", text);
+      }
+    }
 
     throw new Error(message);
   }
@@ -87,11 +112,11 @@ async function startWorkout() {
   const response = await api("/api/workouts", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      focus: "Glúteo pesado"
-    })
+      focus: "Glúteo pesado",
+    }),
   });
 
   const data = await response.json();
@@ -144,7 +169,7 @@ async function saveSet() {
 
     if (
       rir !== null &&
-      (!Number.isInteger(rir) || rir < 0)
+      (!Number.isInteger(rir) || rir < 0 || rir > 5)
     ) {
       throw new Error("RIR inválido.");
     }
@@ -154,15 +179,15 @@ async function saveSet() {
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           exercise: currentExercise,
           set_number: currentSet,
           weight,
           reps,
-          rir
-        })
+          rir,
+        }),
       }
     );
 
@@ -170,9 +195,8 @@ async function saveSet() {
       document.querySelectorAll(".count");
 
     for (const el of countElements) {
-      const exercise = el
-        .closest(".exercise")
-        ?.dataset.exercise;
+      const exercise =
+        el.closest(".exercise")?.dataset.exercise;
 
       if (exercise !== currentExercise) {
         continue;
@@ -208,7 +232,7 @@ async function saveSet() {
     startTimer();
 
   } catch (error) {
-    console.error(error);
+    console.error("saveSet:", error);
 
     alert(
       error.message ||
@@ -227,7 +251,7 @@ async function finishWorkout() {
     await api(
       `/api/workouts/${workoutId}/finish`,
       {
-        method: "POST"
+        method: "POST",
       }
     );
 
@@ -237,7 +261,7 @@ async function finishWorkout() {
     window.location.reload();
 
   } catch (error) {
-    console.error(error);
+    console.error("finishWorkout:", error);
 
     alert(
       error.message ||
@@ -260,11 +284,11 @@ function selectExercise(button) {
 
   if (modalExercise && title) {
     modalExercise.textContent =
-      title.textContent;
+      title.textContent.trim();
   }
 
   startWorkout().catch((error) => {
-    console.error(error);
+    console.error("selectExercise:", error);
 
     alert(
       error.message ||
@@ -293,46 +317,81 @@ function restoreWorkout() {
 function init() {
   restoreWorkout();
 
-  $("#startWorkout")?.addEventListener(
-    "click",
-    () => {
-      startWorkout().catch((error) => {
-        console.error(error);
+  const startButton = $("#startWorkout");
 
-        alert(
-          error.message ||
-          "Não foi possível iniciar o treino."
-        );
-      });
-    }
-  );
+  if (startButton) {
+    startButton.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
 
-  $("#closeModal")?.addEventListener(
-    "click",
-    closeModal
-  );
+        startWorkout().catch((error) => {
+          console.error("startWorkout:", error);
 
-  $("#saveSet")?.addEventListener(
-    "click",
-    saveSet
-  );
+          alert(
+            error.message ||
+            "Não foi possível iniciar o treino."
+          );
+        });
+      }
+    );
+  }
 
-  $("#finishWorkout")?.addEventListener(
-    "click",
-    finishWorkout
-  );
+  const closeButton = $("#closeModal");
+
+  if (closeButton) {
+    closeButton.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
+        closeModal();
+      }
+    );
+  }
+
+  const saveButton = $("#saveSet");
+
+  if (saveButton) {
+    saveButton.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
+        saveSet();
+      }
+    );
+  }
+
+  const finishButton = $("#finishWorkout");
+
+  if (finishButton) {
+    finishButton.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
+        finishWorkout();
+      }
+    );
+  }
 
   document
     .querySelectorAll(".exercise")
     .forEach((button) => {
       button.addEventListener(
         "click",
-        () => selectExercise(button)
+        (event) => {
+          event.preventDefault();
+          selectExercise(button);
+        }
       );
     });
 }
 
-document.addEventListener(
-  "DOMContentLoaded",
-  init
-);
+if (document.readyState === "loading") {
+  document.addEventListener(
+    "DOMContentLoaded",
+    init,
+    { once: true }
+  );
+} else {
+  init();
+}
