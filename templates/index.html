@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#070719">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <title>NyanFit — Treino</title>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero" aria-label="Resumo de hoje">
+      <div class="hero-sky">
+        <span class="star s1">✦</span><span class="star s2">✧</span><span class="star s3">✦</span><span class="star s4">·</span><span class="star s5">✦</span><span class="star s6">✧</span>
+        <span class="moon"></span><span class="cloud c1"></span><span class="cloud c2"></span>
+        <div class="cityline"></div>
+      </div>
+      <img class="hero-cat" src="{{ url_for('static', filename='img/nyan-cat.svg') }}" alt="Nyan Cat">
+      <div class="hero-copy">
+        <h1>BOM TREINO!</h1>
+        <p id="today"></p>
+      </div>
+    </section>
+
+    <section class="focus-card pixel-panel">
+      <div class="focus-icon">★</div>
+      <div><span class="eyebrow">FOCO DO DIA</span><strong id="focusName">Glúteo pesado</strong></div>
+      <div class="focus-rainbow"></div>
+    </section>
+
+    <section id="homeView" class="view active">
+      <div class="section-title"><span>♥</span> TREINO DE HOJE</div>
+      <div id="todayExercises" class="exercise-list"></div>
+      <button id="startWorkoutBtn" class="start-button" type="button">
+        <img src="{{ url_for('static', filename='img/nyan-cat.svg') }}" alt="">
+        <span>INICIAR TREINO</span><i class="button-rainbow"></i>
+      </button>
+
+      <div class="section-title"><span>▥</span> RESUMO SEMANAL</div>
+      <section class="weekly-card pixel-panel">
+        <div class="weekly-stat"><b class="stat-icon blue">🏆</b><strong id="statSets">0</strong><small>Séries feitas</small></div>
+        <div class="weekly-stat"><b class="stat-icon pink">♦</b><strong id="statVolume">0</strong><small>Volume total</small></div>
+        <div class="weekly-stat"><b class="stat-icon yellow">★</b><strong id="statSessions">0</strong><small>Treinos</small></div>
+        <div class="weekly-stat"><b class="stat-icon green">✓</b><strong id="statCompletion">0%</strong><small>Concluídos</small></div>
+      </section>
+
+      <div class="section-title"><span>◷</span> ÚLTIMOS TREINOS</div>
+      <section class="history-card pixel-panel" id="recentSessions"></section>
+    </section>
+
+    <section id="workoutsView" class="view">
+      <div class="page-head"><h2>Treinos</h2><p>Até 3 exercícios por sessão, com foco em glúteos.</p></div>
+      <div id="workoutList" class="workout-list"></div>
+    </section>
+
+    <section id="historyView" class="view">
+      <div class="page-head"><h2>Histórico</h2><p>Suas séries mais recentes.</p></div>
+      <section class="history-detail pixel-panel" id="fullHistory"></section>
+    </section>
+
+    <section id="progressionView" class="view">
+      <div class="page-head"><h2>Progressão</h2><p>Acompanhe a carga dos exercícios.</p></div>
+      <div class="select-wrap"><select id="exerciseSelect" aria-label="Exercício"></select></div>
+      <section class="chart-card pixel-panel"><canvas id="progressChart" height="230"></canvas></section>
+      <section class="goal-card pixel-panel" id="nextGoal">Registre seu primeiro treino para criar uma meta.</section>
+    </section>
+
+    <section id="profileView" class="view">
+      <div class="page-head"><h2>Perfil</h2><p>Configurações da sua conta.</p></div>
+      <section class="profile-card pixel-panel">
+        <div class="profile-cat"><img src="{{ url_for('static', filename='img/nyan-cat.svg') }}" alt="Nyan Cat"></div>
+        <div class="profile-name">{{ current_user }}</div>
+        <div class="profile-goal">FOCO · CRESCIMENTO DE GLÚTEOS</div>
+        <a class="logout-button" href="{{ url_for('logout') }}">SAIR DA CONTA</a>
+      </section>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navegação principal">
+    <button class="nav-item active" data-view="homeView"><span class="nav-icon cat-icon">🐱</span><small>Início</small></button>
+    <button class="nav-item" data-view="workoutsView"><span class="nav-icon">♟</span><small>Treinos</small></button>
+    <button class="nav-item" data-view="historyView"><span class="nav-icon">▣</span><small>Histórico</small></button>
+    <button class="nav-item" data-view="progressionView"><span class="nav-icon">⌁</span><small>Progressão</small></button>
+    <button class="nav-item" data-view="profileView"><span class="nav-icon">●</span><small>Perfil</small></button>
+  </nav>
+
+  <div id="activeSessionBar" class="active-session hidden">
+    <span><i></i> TREINO EM ANDAMENTO</span><b id="sessionElapsed">00:00</b>
+    <button type="button" onclick="openWorkoutModal()">ABRIR</button>
+  </div>
+
+  <div id="workoutModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-sheet">
+      <div class="modal-head"><div><span class="modal-kicker">TREINO</span><h2 id="modalTitle">Glúteo pesado</h2></div><button type="button" onclick="closeModal()">×</button></div>
+      <div id="workoutContent"></div>
+      <button class="finish-button" type="button" onclick="finishWorkout()">FINALIZAR TREINO</button>
+    </div>
+  </div>
+
+  <div id="summaryModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="summary-sheet">
+      <img class="summary-cat" src="{{ url_for('static', filename='img/nyan-cat.svg') }}" alt="Nyan Cat">
+      <div class="complete-title">TREINO CONCLUÍDO!</div>
+      <div class="complete-sub" id="summaryWorkout"></div>
+      <div class="summary-grid">
+        <div><b id="sumDuration">00:00</b><small>Duração</small></div>
+        <div><b id="sumSets">0</b><small>Séries</small></div>
+        <div><b id="sumVolume">0 kg</b><small>Volume</small></div>
+      </div>
+      <p id="summaryMessage" class="complete-message"></p>
+      <button class="start-button compact" type="button" onclick="closeSummary();showView('homeView')">VOLTAR AO INÍCIO</button>
+    </div>
+  </div>
+
+  <div id="timer" class="timer hidden">
+    <div class="timer-cat">🐱🌈</div>
+    <div class="timer-label">DESCANSO</div>
+    <div id="timerValue">01:30</div>
+    <div class="timer-actions"><button onclick="adjustTimer(-15)">−15s</button><button onclick="skipTimer()">Pular</button><button onclick="adjustTimer(15)">+15s</button></div>
+  </div>
+
+  <div id="toast" role="status"></div>
+  <script>window.NYANFIT_WORKOUTS = {{ workouts|tojson }};</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

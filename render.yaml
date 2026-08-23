@@ -1,0 +1,17 @@
+
+services:
+  - type: web
+    name: nyanfit
+    runtime: python
+    buildCommand: pip install -r requirements.txt && flask db upgrade
+    startCommand: gunicorn --workers 2 --threads 4 --timeout 60 --access-logfile - --error-logfile - app:app
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: LOG_LEVEL
+        value: INFO

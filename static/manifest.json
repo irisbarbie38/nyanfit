@@ -1,0 +1,9 @@
+{
+  "name": "NyanFit",
+  "short_name": "NyanFit",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070719",
+  "theme_color": "#09081b",
+  "description": "Acompanhamento de treinos com estética pixel art."
+}
