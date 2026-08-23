@@ -133,6 +133,20 @@ def create_app():
             ("smith", "Agachamento no Smith", "3 séries", "8–12 reps", "RIR 1–2", 3),
             ("abduction", "Abdução na máquina", "3 séries", "15–25 reps", "RIR 1–2", 3),
         ]
+        recent_view = []
+        weekday = {0:"SEG",1:"TER",2:"QUA",3:"QUI",4:"SEX",5:"SÁB",6:"DOM"}
+        for w in recent[:2]:
+            duration = None
+            if w.ended_at:
+                duration = max(0, int((w.ended_at - w.started_at).total_seconds() // 60))
+            recent_view.append({
+                "weekday": weekday.get(w.started_at.weekday(), ""),
+                "day": w.started_at.day,
+                "focus": w.focus,
+                "volume": sum(s.weight * s.reps for s in w.sets),
+                "duration": duration,
+                "completed": bool(w.ended_at),
+            })
         return render_template(
             "index.html",
             exercises=exercises,
@@ -141,6 +155,7 @@ def create_app():
             workouts=len(week_sessions),
             completed=completed,
             recent=recent,
+            recent_view=recent_view,
             today=today,
             focus="Glúteo pesado",
         )

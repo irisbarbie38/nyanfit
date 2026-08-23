@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#03030d">
+<meta name="description" content="NyanFit v6.1 — pixel canvas fitness tracker">
+<link rel="manifest" href="/static/manifest.json">
+<title>NyanFit v6.1</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<div class="page">
+  <div class="screen" id="screen" aria-label="NyanFit dashboard">
+    <img class="skin" src="/static/img/v61/mockup.png" alt="">
+
+    <div class="dynamic date" id="todayLabel">{{ today.strftime('%d de %B') }}</div>
+    <div class="dynamic focus-value">{{ focus }}</div>
+
+    <section class="dynamic exercises-layer" aria-label="Treino de hoje">
+      {% for ex in exercises %}
+      <button class="hotspot exercise" data-exercise="{{ ex[0] }}" data-sets="{{ ex[5] }}">
+        <span class="exercise-title">{{ ex[1] }}</span>
+        <span class="exercise-meta">{{ ex[2] }} <i>•</i> {{ ex[3] }} <i>•</i> {{ ex[4] }}</span>
+        <span class="count" data-count="{{ ex[0] }}">0/{{ ex[5] }}</span>
+        <span class="exercise-arrow">›</span>
+      </button>
+      {% endfor %}
+    </section>
+
+    <button id="startWorkout" class="hotspot start-hotspot" aria-label="Iniciar treino">
+      <span>INICIAR TREINO</span>
+    </button>
+
+    <section class="dynamic stats-layer" aria-label="Resumo semanal">
+      <div><b class="stat-icon trophy">♜</b><strong>{{ sets_count }}</strong><small>Séries feitas</small></div>
+      <div><b class="stat-icon flame">♨</b><strong>{{ "{:,.0f}".format(volume).replace(",", ".") }}<em> kg</em></strong><small>Volume total</small></div>
+      <div><b class="stat-icon star">★</b><strong>{{ workouts }}</strong><small>Treinos</small></div>
+      <div><b class="stat-icon check">●</b><strong>{{ (completed * 100 // workouts) if workouts else 0 }}<em>%</em></strong><small>Concluídos</small></div>
+    </section>
+
+    <section class="dynamic recent-layer" aria-label="Últimos treinos">
+      {% for w in recent_view %}
+      <button class="recent-row" type="button">
+        <span class="recent-rainbow"></span>
+        <span class="datebox"><b>{{ w.weekday }}</b><strong>{{ w.day }}</strong></span>
+        <span class="recent-info"><b>{{ w.focus }}</b><small>Volume: {{ "{:,.0f}".format(w.volume).replace(",", ".") }} kg{% if w.duration is not none %}　•　{{ w.duration }} min{% endif %}</small></span>
+        {% if w.completed %}<span class="done">CONCLUÍDO</span>{% endif %}
+        <span class="recent-arrow">›</span>
+      </button>
+      {% else %}
+      <div class="no-history">Ainda não há treinos registrados.</div>
+      {% endfor %}
+      <a href="#" class="all-link">Ver todos os treinos <span>›</span></a>
+    </section>
+
+    <nav class="dynamic nav-layer" aria-label="Navegação">
+      <button class="nav-item active" type="button"><span class="nav-glyph home">🐱</span><small>Início</small></button>
+      <button class="nav-item" type="button"><span class="nav-glyph">♟</span><small>Treinos</small></button>
+      <button class="nav-item" type="button"><span class="nav-glyph">▣</span><small>Histórico</small></button>
+      <button class="nav-item" type="button"><span class="nav-glyph">⌁</span><small>Progressão</small></button>
+      <button class="nav-item" type="button"><span class="nav-glyph">●</span><small>Perfil</small></button>
+    </nav>
+  </div>
+</div>
+
+<div id="workoutModal" class="modal hidden">
+  <div class="modal-card">
+    <button class="close" id="closeModal" type="button">×</button>
+    <h2>🏋 TREINO</h2>
+    <p id="modalExercise">Elevação pélvica</p>
+    <div class="timer"><span id="timer">01:30</span><small>DESCANSO</small></div>
+    <div class="inputs">
+      <input id="weight" type="number" step="0.5" placeholder="kg">
+      <input id="reps" type="number" placeholder="reps">
+      <input id="rir" type="number" min="0" max="5" placeholder="RIR">
+    </div>
+    <button id="saveSet" class="save-button" type="button">SALVAR SÉRIE</button>
+    <button id="finishWorkout" class="secondary" type="button">FINALIZAR TREINO</button>
+  </div>
+</div>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
