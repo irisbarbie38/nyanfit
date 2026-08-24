@@ -1,3 +1,100 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NyanFit</title><link rel="stylesheet" href="/static/css/app.css"></head>
-<body class="login-page"><div class="login-card"><img src="/static/img/nyan-header.png" class="login-cat"><h1>NYANFIT</h1><p>Treino, progresso e um pouco de rainbow.</p>{% if error %}<div class="error">{{ error }}</div>{% endif %}<form method="post" action="/login"><input name="username" placeholder="usuário" required><input type="password" name="password" placeholder="senha" required><button>ENTRAR</button></form><details><summary>Criar conta</summary><form method="post" action="/register"><input name="username" placeholder="usuário" required><input type="password" name="password" placeholder="senha (6+)" required><button>CRIAR CONTA</button></form></details></div></body></html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#03030d">
+  <title>NyanFit</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-card">
+
+      <div class="login-brand">
+        <img
+          src="/static/img/nyan-header.png"
+          class="login-cat"
+          alt=""
+          aria-hidden="true"
+        >
+
+        <div class="login-logo">NYANFIT</div>
+
+        <p class="login-tagline">
+          Treino, progresso<br>
+          e um pouco de rainbow.
+        </p>
+      </div>
+
+      {% if error %}
+      <div class="login-error" role="alert">
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="post" action="/login" class="login-form">
+        <label for="login-username">Usuário</label>
+        <input
+          id="login-username"
+          name="username"
+          type="text"
+          autocomplete="username"
+          placeholder="seu usuário"
+          required
+        >
+
+        <label for="login-password">Senha</label>
+        <input
+          id="login-password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          placeholder="sua senha"
+          required
+        >
+
+        <button type="submit" class="login-primary">
+          ENTRAR
+        </button>
+      </form>
+
+      <div class="login-divider">
+        <span>ou</span>
+      </div>
+
+      <details class="register-box">
+        <summary>CRIAR CONTA</summary>
+
+        <form method="post" action="/register" class="login-form register-form">
+          <label for="register-username">Usuário</label>
+          <input
+            id="register-username"
+            name="username"
+            type="text"
+            autocomplete="username"
+            placeholder="escolha um usuário"
+            required
+          >
+
+          <label for="register-password">Senha</label>
+          <input
+            id="register-password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            placeholder="mínimo de 6 caracteres"
+            required
+          >
+
+          <button type="submit" class="login-secondary">
+            CRIAR CONTA
+          </button>
+        </form>
+      </details>
+
+    </section>
+  </main>
+</body>
+</html>

@@ -112,3 +112,245 @@
     color:#ff9dcc;
     font-size:13px;
 }
+
+
+/* NyanFit login */
+
+.login-page {
+    min-height: 100vh;
+    margin: 0;
+    padding: 24px;
+    display: grid;
+    place-items: center;
+    background:
+        radial-gradient(
+            circle at 50% 20%,
+            rgba(113, 38, 145, .18),
+            transparent 38%
+        ),
+        #03030d;
+}
+
+.login-shell {
+    width: 100%;
+    max-width: 430px;
+}
+
+.login-card {
+    position: relative;
+    overflow: hidden;
+    padding: 32px 28px 28px;
+    border: 1px solid #4c327e;
+    border-radius: 20px;
+    background: rgba(12, 12, 36, .98);
+    box-shadow:
+        0 24px 70px rgba(0, 0, 0, .65),
+        0 0 35px rgba(190, 45, 170, .08);
+}
+
+.login-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(
+        90deg,
+        #ff4d9f,
+        #ffdf3f,
+        #45e878,
+        #43b8ff,
+        #c05bff,
+        #ff4d9f
+    );
+}
+
+.login-brand {
+    text-align: center;
+    margin-bottom: 26px;
+}
+
+.login-cat {
+    display: block;
+    width: min(100%, 280px);
+    height: 82px;
+    margin: 0 auto 8px;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+.login-logo {
+    color: #ff55a7;
+    font-family: monospace;
+    font-size: clamp(28px, 9vw, 42px);
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-shadow:
+        2px 2px #7e165d,
+        0 0 18px rgba(255, 85, 167, .25);
+}
+
+.login-tagline {
+    margin: 8px 0 0;
+    color: #aaa4d0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.login-form label {
+    margin-top: 7px;
+    color: #ddd4ff;
+    font-family: monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.login-form input {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid #37305d;
+    border-radius: 10px;
+    outline: none;
+    background: #171735;
+    color: #fff;
+    transition:
+        border-color .15s ease,
+        box-shadow .15s ease,
+        background .15s ease;
+}
+
+.login-form input::placeholder {
+    color: #6f6892;
+}
+
+.login-form input:focus {
+    border-color: #b83f9c;
+    background: #1b1a3d;
+    box-shadow: 0 0 0 2px rgba(255, 79, 164, .12);
+}
+
+.login-primary,
+.login-secondary {
+    width: 100%;
+    min-height: 52px;
+    margin-top: 14px;
+    border-radius: 11px;
+    font-family: monospace;
+    font-weight: 900;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition:
+        transform .1s ease,
+        filter .15s ease;
+}
+
+.login-primary:hover,
+.login-secondary:hover {
+    filter: brightness(1.1);
+}
+
+.login-primary:active,
+.login-secondary:active {
+    transform: translateY(1px);
+}
+
+.login-primary {
+    border: 2px solid #a70c6e;
+    background: linear-gradient(
+        180deg,
+        #ff4c9f,
+        #ee197f
+    );
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(238, 25, 127, .18);
+}
+
+.login-secondary {
+    border: 1px solid #59447e;
+    background: #211e3f;
+    color: #ddd4ff;
+}
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0 16px;
+    color: #716895;
+    font: 11px monospace;
+    text-transform: uppercase;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #29254b;
+}
+
+.register-box {
+    border: 1px solid #29254b;
+    border-radius: 11px;
+    background: rgba(8, 8, 27, .65);
+}
+
+.register-box summary {
+    padding: 14px;
+    color: #c05bff;
+    font: 12px monospace;
+    font-weight: 800;
+    text-align: center;
+    cursor: pointer;
+    list-style: none;
+}
+
+.register-box summary::-webkit-details-marker {
+    display: none;
+}
+
+.register-box summary::before {
+    content: "+ ";
+}
+
+.register-box[open] summary::before {
+    content: "− ";
+}
+
+.register-form {
+    padding: 0 14px 16px;
+}
+
+.login-error {
+    margin-bottom: 16px;
+    padding: 11px 13px;
+    border: 1px solid #7d285f;
+    border-radius: 10px;
+    background: #3a122f;
+    color: #ff9dcc;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+    .login-page {
+        padding: 14px;
+    }
+
+    .login-card {
+        padding: 28px 20px 22px;
+        border-radius: 16px;
+    }
+
+    .login-cat {
+        height: 70px;
+    }
+}
