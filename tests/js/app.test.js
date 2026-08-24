@@ -18,24 +18,25 @@ describe("NyanFit frontend contract", () => {
       .toEqual([0, 1, 2, 3, 4]);
   });
 
-  test("o modal possui os controles fundamentais do treino", () => {
+  test("o modal possui o cronômetro de descanso e inicia a série", () => {
     document.body.innerHTML = `
       <div id="workoutModal">
-        <span id="timer"></span>
+        <span id="timer">00:00</span>
         <input id="weight">
         <input id="reps">
         <input id="rir">
         <button id="saveSet"></button>
-        <button id="startRest"></button>
-        <button id="skipRest"></button>
-        <button id="finishWorkout"></button>
+        <button id="startSet">INICIAR SÉRIE</button>
       </div>
     `;
+
     for (const id of [
       "timer", "weight", "reps", "rir",
-      "saveSet", "startRest", "skipRest", "finishWorkout"
+      "saveSet", "startSet"
     ]) {
       expect(document.getElementById(id)).not.toBeNull();
     }
+
+    expect(document.getElementById("timer").textContent).toBe("00:00");
   });
 });

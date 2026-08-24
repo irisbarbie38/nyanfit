@@ -10,42 +10,102 @@ let workoutId = null;
 let selectedDay = 0;
 let exerciseIndex = 0;
 let setIndex = 0;
-let restTimerId = null;
-let restRemaining = 90;
+let setActive = false;
+
+let restClockId = null;
+let restStartedAt = null;
+let restElapsed = 0;
+
+/*
+ * Guarda o descanso que terminou quando a usuária
+ * clicou em "INICIAR PRÓXIMA SÉRIE".
+ *
+ * O valor só é consumido quando a próxima série
+ * é salva.
+ */
+let pendingRestSeconds = 0;
 
 const $ = (selector) => document.querySelector(selector);
+
 const modal = $("#workoutModal");
 const timer = $("#timer");
 const modalExercise = $("#modalExercise");
 const modalProgress = $("#modalProgress");
 const modalDay = $("#modalDay");
-const startRestButton = $("#startRest");
-const skipRestButton = $("#skipRest");
+const startSetButton = $("#startSet");
 const program = JSON.parse($("#programData")?.textContent || "[]");
 
 function formatTime(seconds) {
-  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  const safe = Math.max(0, Number(seconds) || 0);
+
+  return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(
+    safe % 60
+  ).padStart(2, "0")}`;
 }
 
 function renderTimer() {
-  if (timer) timer.textContent = formatTime(restRemaining);
+  if (timer) {
+    timer.textContent = formatTime(restElapsed);
+  }
 }
 
-function stopRest() {
-  clearInterval(restTimerId);
-  restTimerId = null;
+function stopRestClock() {
+  if (restClockId) {
+    clearInterval(restClockId);
+  }
+
+  restClockId = null;
+}
+
+function currentRestSeconds() {
+  if (!restStartedAt) {
+    return Math.max(0, Math.floor(restElapsed));
+  }
+
+  return Math.max(
+    0,
+    Math.floor((Date.now() - restStartedAt) / 1000)
+  );
 }
 
 function resetRest() {
-  stopRest();
-  restRemaining = 90;
+  stopRestClock();
+
+  restStartedAt = null;
+  restElapsed = 0;
+  pendingRestSeconds = 0;
+
   renderTimer();
-  if (startRestButton) {
-    startRestButton.disabled = false;
-    startRestButton.textContent = "INICIAR DESCANSO";
+}
+
+function startRestClock() {
+  stopRestClock();
+
+  restStartedAt = Date.now();
+  restElapsed = 0;
+
+  renderTimer();
+
+  restClockId = setInterval(() => {
+    restElapsed = currentRestSeconds();
+    renderTimer();
+  }, 250);
+}
+
+function finishRest() {
+  if (restStartedAt !== null) {
+    restElapsed = currentRestSeconds();
   }
-  startRestButton?.classList.add("hidden");
-  skipRestButton?.classList.add("hidden");
+
+  pendingRestSeconds = Math.max(
+    0,
+    Math.floor(restElapsed)
+  );
+
+  stopRestClock();
+  restStartedAt = null;
+
+  renderTimer();
 }
 
 function openModal() {
@@ -53,15 +113,23 @@ function openModal() {
 }
 
 function closeModal() {
-  stopRest();
+  stopRestClock();
   modal?.classList.add("hidden");
 }
 
 function clearWorkoutState() {
+  stopRestClock();
+
   localStorage.removeItem("nyanfit-workout");
+
   workoutId = null;
   exerciseIndex = 0;
   setIndex = 0;
+  setActive = false;
+
+  restStartedAt = null;
+  restElapsed = 0;
+  pendingRestSeconds = 0;
 }
 
 function currentWorkout() {
@@ -78,6 +146,7 @@ function iconFor(id) {
     smith: "smith.png",
     abduction: "abduction.png"
   };
+
   return known[id] || "placeholder.svg";
 }
 
@@ -93,45 +162,90 @@ function escapeHtml(value) {
 
 function renderDay() {
   const workout = currentWorkout();
-  if (!workout) return;
+
+  if (!workout) {
+    return;
+  }
 
   selectedDay = workout.day;
+
   const focus = $("#focusValue");
-  if (focus) focus.textContent = workout.name;
+
+  if (focus) {
+    focus.textContent = workout.name;
+  }
 
   document.querySelectorAll(".day-button").forEach((button) => {
-    button.classList.toggle("active", Number(button.dataset.day) === Number(selectedDay));
+    button.classList.toggle(
+      "active",
+      Number(button.dataset.day) === Number(selectedDay)
+    );
   });
 
   const list = $("#exerciseList");
-  if (!list) return;
 
-  list.innerHTML = workout.exercises.map((exercise) => `
-    <button type="button" class="hotspot exercise"
-            data-exercise="${escapeHtml(exercise.id)}"
-            data-sets="${Number(exercise.sets)}">
-      <img class="exercise-icon"
-           src="/static/img/v61/${iconFor(exercise.id)}"
-           alt="" aria-hidden="true" draggable="false">
-      <span class="exercise-title">${escapeHtml(exercise.name)}</span>
-      <span class="exercise-meta">${exercise.sets} séries <i>•</i>
-        ${exercise.min_reps}–${exercise.max_reps} reps <i>•</i> RIR ${escapeHtml(exercise.rir)}</span>
-      <span class="count" data-count="${escapeHtml(exercise.id)}">0/${exercise.sets}</span>
-      <span class="exercise-arrow">›</span>
-    </button>
-  `).join("");
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML = workout.exercises
+    .map(
+      (exercise) => `
+      <button
+        type="button"
+        class="hotspot exercise"
+        data-exercise="${escapeHtml(exercise.id)}"
+        data-sets="${Number(exercise.sets)}"
+      >
+        <img
+          class="exercise-icon"
+          src="/static/img/v61/${iconFor(exercise.id)}"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        >
+
+        <span class="exercise-title">
+          ${escapeHtml(exercise.name)}
+        </span>
+
+        <span class="exercise-meta">
+          ${exercise.sets} séries
+          <i>•</i>
+          ${exercise.min_reps}–${exercise.max_reps} reps
+          <i>•</i>
+          RIR ${escapeHtml(exercise.rir)}
+        </span>
+
+        <span
+          class="count"
+          data-count="${escapeHtml(exercise.id)}"
+        >
+          0/${exercise.sets}
+        </span>
+
+        <span class="exercise-arrow">›</span>
+      </button>
+    `
+    )
+    .join("");
 
   list.querySelectorAll(".exercise").forEach((button) => {
-    button.addEventListener("click", () => selectExercise(button));
+    button.addEventListener("click", () => {
+      selectExercise(button);
+    });
   });
 
   exerciseIndex = 0;
   setIndex = 0;
+  setActive = false;
+
   resetRest();
 }
 
 function updateProgress() {
   const current = getExercises()[exerciseIndex];
+
   if (current && modalProgress) {
     modalProgress.textContent =
       `SÉRIE ${setIndex + 1}/${Number(current.dataset.sets || 1)}`;
@@ -142,27 +256,50 @@ function updateExerciseView() {
   const list = getExercises();
   const current = list[exerciseIndex];
   const workout = currentWorkout();
-  if (!current || !workout) return;
+
+  if (!current || !workout) {
+    return;
+  }
 
   const title = current.querySelector(".exercise-title");
-  if (modalExercise && title) modalExercise.textContent = title.textContent.trim();
+
+  if (modalExercise && title) {
+    modalExercise.textContent = title.textContent.trim();
+  }
 
   if (modalDay) {
     modalDay.textContent =
-      `${["SEG", "TER", "QUA", "QUI", "SEX"][workout.day]} · ${workout.name.toUpperCase()}`;
+      `${["SEG", "TER", "QUA", "QUI", "SEX"][workout.day]} · ` +
+      `${workout.name.toUpperCase()}`;
   }
 
   updateProgress();
+
   resetRest();
+
+  setActive = false;
 
   ["#weight", "#reps", "#rir"].forEach((selector) => {
     const element = $(selector);
-    if (element) element.value = "";
+
+    if (element) {
+      element.value = "";
+    }
   });
+
+  if (startSetButton) {
+    startSetButton.disabled = false;
+    startSetButton.textContent = "INICIAR SÉRIE";
+    startSetButton.classList.remove("hidden");
+  }
 }
 
 function calculateNextPosition(workout) {
-  const position = nextPosition(getExercises(), workout);
+  const position = nextPosition(
+    getExercises(),
+    workout
+  );
+
   exerciseIndex = position.exerciseIndex;
   setIndex = position.setIndex;
 }
@@ -170,22 +307,37 @@ function calculateNextPosition(workout) {
 async function ensureWorkout() {
   if (workoutId) {
     try {
-      const workout = await (await api(`/api/workouts/${workoutId}`)).json();
+      const response = await api(
+        `/api/workouts/${workoutId}`
+      );
+
+      const workout = await response.json();
+
       if (!workout.ended_at) {
-        if (Number(workout.workout_day) !== Number(selectedDay)) {
+        if (
+          Number(workout.workout_day) !==
+          Number(selectedDay)
+        ) {
           selectedDay = Number(workout.workout_day);
           renderDay();
         }
+
         calculateNextPosition(workout);
+
         return workoutId;
       }
-    } catch (_) {}
+    } catch (_) {
+      // Recria a sessão abaixo.
+    }
+
     clearWorkoutState();
   }
 
   const response = await api("/api/workouts", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify({
       workout_day: selectedDay,
       day: selectedDay,
@@ -194,20 +346,35 @@ async function ensureWorkout() {
   });
 
   const data = await response.json();
+
   const id = data.id ?? data.session_id;
-  if (!id) throw new Error("A API não retornou o ID do treino.");
+
+  if (!id) {
+    throw new Error(
+      "A API não retornou o ID do treino."
+    );
+  }
 
   workoutId = Number(id);
-  localStorage.setItem("nyanfit-workout", String(workoutId));
+
+  localStorage.setItem(
+    "nyanfit-workout",
+    String(workoutId)
+  );
+
   return workoutId;
 }
 
 async function startWorkout() {
   await ensureWorkout();
+
   if (exerciseIndex >= getExercises().length) {
-    alert("Este treino já possui todas as séries registradas.");
+    alert(
+      "Este treino já possui todas as séries registradas."
+    );
     return;
   }
+
   openModal();
   updateExerciseView();
 }
@@ -215,15 +382,28 @@ async function startWorkout() {
 async function selectExercise(button) {
   const list = getExercises();
   const index = list.indexOf(button);
-  if (index < 0) return;
+
+  if (index < 0) {
+    return;
+  }
 
   try {
     await ensureWorkout();
+
     exerciseIndex = index;
 
-    const workout = await (await api(`/api/workouts/${workoutId}`)).json();
+    const response = await api(
+      `/api/workouts/${workoutId}`
+    );
+
+    const workout = await response.json();
+
     const saved = (workout.sets || [])
-      .filter((item) => item.exercise === button.dataset.exercise).length;
+      .filter(
+        (item) =>
+          item.exercise === button.dataset.exercise
+      )
+      .length;
 
     setIndex = Math.min(
       saved,
@@ -233,124 +413,253 @@ async function selectExercise(button) {
     openModal();
     updateExerciseView();
   } catch (error) {
-    alert(error.message || "Não foi possível abrir o exercício.");
+    alert(
+      error.message ||
+        "Não foi possível abrir o exercício."
+    );
   }
+}
+
+function startSeries() {
+  if (setActive) {
+    return;
+  }
+
+  const current = getExercises()[exerciseIndex];
+
+  if (!current) {
+    return;
+  }
+
+  /*
+   * Se existe um descanso em andamento, encerramos
+   * esse descanso e congelamos o tempo em
+   * pendingRestSeconds.
+   */
+  if (restStartedAt !== null) {
+    finishRest();
+
+    const position = advancePosition(
+      getExercises(),
+      {
+        exerciseIndex,
+        setIndex
+      }
+    );
+
+    if (position.complete) {
+      return;
+    }
+
+    exerciseIndex = position.exerciseIndex;
+    setIndex = position.setIndex;
+  } else {
+    /*
+     * Primeiro início de série:
+     * não existe descanso anterior.
+     */
+    restElapsed = 0;
+    pendingRestSeconds = 0;
+
+    renderTimer();
+  }
+
+  setActive = true;
+
+  const next = getExercises()[exerciseIndex];
+  const workout = currentWorkout();
+
+  if (next && workout) {
+    const title =
+      next.querySelector(".exercise-title");
+
+    if (modalExercise && title) {
+      modalExercise.textContent =
+        title.textContent.trim();
+    }
+
+    if (modalDay) {
+      modalDay.textContent =
+        `${["SEG", "TER", "QUA", "QUI", "SEX"][workout.day]} · ` +
+        `${workout.name.toUpperCase()}`;
+    }
+
+    updateProgress();
+  }
+
+  if (startSetButton) {
+    startSetButton.classList.add("hidden");
+  }
+
+  $("#weight")?.focus();
 }
 
 async function saveSet() {
   try {
     await ensureWorkout();
 
-    const current = getExercises()[exerciseIndex];
-    if (!current) throw new Error("Exercício inválido.");
-
-    const total = Number(current.dataset.sets || 1);
-    if (setIndex >= total) {
-      throw new Error("Todas as séries deste exercício já foram salvas.");
+    if (!setActive) {
+      throw new Error(
+        "Inicie a série antes de salvá-la."
+      );
     }
 
-    const weight = Number($("#weight")?.value || 0);
-    const reps = Number($("#reps")?.value || 0);
+    const current = getExercises()[exerciseIndex];
+
+    if (!current) {
+      throw new Error("Exercício inválido.");
+    }
+
+    const total = Number(
+      current.dataset.sets || 1
+    );
+
+    if (setIndex >= total) {
+      throw new Error(
+        "Todas as séries deste exercício já foram salvas."
+      );
+    }
+
+    const weight = Number(
+      $("#weight")?.value || 0
+    );
+
+    const reps = Number(
+      $("#reps")?.value || 0
+    );
+
     const rawRir = $("#rir")?.value ?? "";
-    const rir = rawRir === "" ? null : Number(rawRir);
 
-    validateSet({ weight, reps, rir });
+    const rir =
+      rawRir === ""
+        ? null
+        : Number(rawRir);
 
-    await api(`/api/workouts/${workoutId}/sets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        exercise: current.dataset.exercise,
-        set_number: setIndex + 1,
-        weight,
-        reps,
-        rir
-      })
+    validateSet({
+      weight,
+      reps,
+      rir
     });
 
-    const count = current.querySelector(".count");
-    if (count) count.textContent = `${Math.min(setIndex + 1, total)}/${total}`;
+    /*
+     * Este é o descanso que acabou antes de
+     * iniciar a série atual.
+     *
+     * Para a primeira série será 0.
+     */
+    const restSeconds = pendingRestSeconds;
+
+    const response = await api(
+      `/api/workouts/${workoutId}/sets`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          exercise: current.dataset.exercise,
+          set_number: setIndex + 1,
+          weight,
+          reps,
+          rir,
+          rest_seconds: restSeconds
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+          "Não foi possível salvar a série."
+      );
+    }
+
+    const count =
+      current.querySelector(".count");
+
+    if (count) {
+      count.textContent =
+        `${Math.min(
+          setIndex + 1,
+          total
+        )}/${total}`;
+    }
 
     $("#weight").value = "";
     $("#reps").value = "";
     $("#rir").value = "";
 
-    startRestButton?.classList.remove("hidden");
-    skipRestButton?.classList.remove("hidden");
+    /*
+     * O descanso que acabou foi consumido.
+     */
+    pendingRestSeconds = 0;
 
-    if (modalProgress) modalProgress.textContent = "SÉRIE SALVA · DESCANSO";
-  } catch (error) {
-    alert(error.message || "Não foi possível salvar a série.");
-  }
-}
+    setActive = false;
 
-function advanceAfterRest() {
-  const position = advancePosition(getExercises(), {
-    exerciseIndex,
-    setIndex
-  });
+    if (
+      data.completed ||
+      data.complete
+    ) {
+      clearWorkoutState();
 
-  resetRest();
-  exerciseIndex = position.exerciseIndex;
-  setIndex = position.setIndex;
+      if (modalProgress) {
+        modalProgress.textContent =
+          "TREINO CONCLUÍDO";
+      }
 
-  if (position.complete) {
-    if (modalProgress) modalProgress.textContent = "TREINO CONCLUÍDO";
-    return;
-  }
+      setTimeout(
+        () => location.reload(),
+        250
+      );
 
-  updateExerciseView();
-}
-
-function startRest() {
-  if (restTimerId) return;
-
-  restRemaining = 90;
-  renderTimer();
-
-  if (startRestButton) {
-    startRestButton.disabled = true;
-    startRestButton.textContent = "DESCANSANDO...";
-  }
-
-  restTimerId = setInterval(() => {
-    restRemaining -= 1;
-    renderTimer();
-
-    if (restRemaining <= 0) {
-      stopRest();
-      navigator.vibrate?.([180, 100, 180]);
-      advanceAfterRest();
+      return;
     }
-  }, 1000);
-}
 
-function skipRest() {
-  advanceAfterRest();
-}
+    /*
+     * Agora começa o descanso entre a série
+     * que acabou de ser salva e a próxima.
+     */
+    startRestClock();
 
-async function finishWorkout() {
-  if (!workoutId) {
-    closeModal();
-    return;
-  }
+    if (modalProgress) {
+      modalProgress.textContent =
+        "DESCANSO";
+    }
 
-  try {
-    await api(`/api/workouts/${workoutId}/finish`, { method: "POST" });
-    clearWorkoutState();
-    closeModal();
-    location.reload();
+    if (startSetButton) {
+      startSetButton.textContent =
+        "INICIAR PRÓXIMA SÉRIE";
+
+      startSetButton.classList.remove(
+        "hidden"
+      );
+    }
   } catch (error) {
-    alert(error.message || "Não foi possível finalizar o treino.");
+    alert(
+      error.message ||
+        "Não foi possível salvar a série."
+    );
   }
 }
 
 async function restoreWorkout() {
-  const saved = localStorage.getItem("nyanfit-workout");
-  if (!saved) return;
+  const saved =
+    localStorage.getItem(
+      "nyanfit-workout"
+    );
+
+  if (!saved) {
+    return;
+  }
 
   const id = Number(saved);
-  if (!Number.isInteger(id) || id <= 0) {
+
+  if (
+    !Number.isInteger(id) ||
+    id <= 0
+  ) {
     clearWorkoutState();
     return;
   }
@@ -358,15 +667,22 @@ async function restoreWorkout() {
   workoutId = id;
 
   try {
-    const workout = await (await api(`/api/workouts/${id}`)).json();
+    const response = await api(
+      `/api/workouts/${id}`
+    );
+
+    const workout = await response.json();
 
     if (workout.ended_at) {
       clearWorkoutState();
       return;
     }
 
-    selectedDay = Number(workout.workout_day);
+    selectedDay =
+      Number(workout.workout_day);
+
     renderDay();
+
     calculateNextPosition(workout);
   } catch (_) {
     clearWorkoutState();
@@ -375,53 +691,98 @@ async function restoreWorkout() {
 
 function init() {
   selectedDay = Number(
-    document.querySelector(".day-button.active")?.dataset.day || 0
+    document.querySelector(
+      ".day-button.active"
+    )?.dataset.day || 0
   );
 
-  document.querySelectorAll(".day-button").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (workoutId) {
-        alert("Finalize o treino atual antes de trocar o dia.");
-        return;
-      }
-      selectedDay = Number(button.dataset.day);
-      renderDay();
+  document
+    .querySelectorAll(".day-button")
+    .forEach((button) => {
+      button.addEventListener(
+        "click",
+        () => {
+          if (workoutId) {
+            alert(
+              "Finalize o treino atual antes de trocar o dia."
+            );
+            return;
+          }
+
+          selectedDay =
+            Number(button.dataset.day);
+
+          renderDay();
+        }
+      );
     });
-  });
 
   restoreWorkout();
 
-  $("#startWorkout")?.addEventListener("click", () =>
-    startWorkout().catch((error) => alert(error.message))
+  $("#startWorkout")?.addEventListener(
+    "click",
+    () =>
+      startWorkout().catch((error) =>
+        alert(error.message)
+      )
   );
-  $("#closeModal")?.addEventListener("click", closeModal);
-  $("#saveSet")?.addEventListener("click", saveSet);
-  startRestButton?.addEventListener("click", startRest);
-  skipRestButton?.addEventListener("click", skipRest);
-  $("#finishWorkout")?.addEventListener("click", finishWorkout);
+
+  $("#closeModal")?.addEventListener(
+    "click",
+    closeModal
+  );
+
+  $("#saveSet")?.addEventListener(
+    "click",
+    saveSet
+  );
+
+  startSetButton?.addEventListener(
+    "click",
+    startSeries
+  );
 
   $("#navWorkouts")?.addEventListener(
     "click",
-    () => document.querySelector(".week-picker")?.scrollIntoView?.()
+    () =>
+      document
+        .querySelector(".week-picker")
+        ?.scrollIntoView?.()
   );
+
   $("#navHistory")?.addEventListener(
     "click",
-    () => (location.hash = "history")
+    () => {
+      location.hash = "history";
+    }
   );
+
   $("#navProgress")?.addEventListener(
     "click",
-    () => alert("Progressão disponível pela API /api/progression.")
+    () =>
+      alert(
+        "Progressão disponível pela API /api/progression."
+      )
   );
+
   $("#navProfile")?.addEventListener(
     "click",
-    () => (location.href = "/logout")
+    () => {
+      location.href = "/logout";
+    }
   );
 
   resetRest();
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init, { once: true });
+if (
+  document.readyState === "loading"
+) {
+  document.addEventListener(
+    "DOMContentLoaded",
+    init,
+    { once: true }
+  );
 } else {
   init();
 }

@@ -496,6 +496,7 @@ def create_app(config=None):
             weight=weight,
             reps=reps,
             rir=rir,
+            rest_seconds=rest_seconds,
         )
         db.session.add(item)
 
@@ -531,6 +532,7 @@ def create_app(config=None):
         return jsonify([{
             "id": x.id, "workout_day": x.workout_day, "exercise_name": x.exercise,
             "set_number": x.set_number, "weight": x.weight, "reps": x.reps, "rir": x.rir,
+            "rest_seconds": x.rest_seconds,
             "created_at": x.created_at.isoformat(),
         } for x in rows])
 

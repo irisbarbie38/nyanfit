@@ -116,3 +116,75 @@ def test_invalid_workout_day_is_rejected(client):
     register(client)
     response = client.post("/api/session/start", json={"workout_day": 9})
     assert response.status_code == 400
+
+
+def test_rest_seconds_are_persisted_and_returned(client):
+    register(client)
+    session_id = start(client, 0)
+
+    response = client.post(
+        f"/api/workouts/{session_id}/sets",
+        json={
+            "exercise": "Elevação pélvica (Hip Thrust)",
+            "set_number": 1,
+            "weight": 100,
+            "reps": 10,
+            "rir": 1,
+            "rest_seconds": 0,
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        f"/api/workouts/{session_id}/sets",
+        json={
+            "exercise": "Elevação pélvica (Hip Thrust)",
+            "set_number": 2,
+            "weight": 100,
+            "reps": 10,
+            "rir": 1,
+            "rest_seconds": 127,
+        },
+    )
+    assert response.status_code == 200
+
+    workout = client.get(f"/api/workouts/{session_id}").get_json()
+    assert workout["sets"][0]["rest_seconds"] == 0
+    assert workout["sets"][1]["rest_seconds"] == 127
+
+    history = client.get("/api/history").get_json()
+    assert history[0]["rest_seconds"] == 127
+
+
+def test_last_required_set_finishes_workout_automatically(client):
+    register(client)
+    session_id = start(client, 0)
+
+    workout = client.get(f"/api/workouts/{session_id}").get_json()
+
+    for exercise in [
+        item for item in [
+            ("hip-thrust", 4),
+            ("smith", 3),
+            ("abduction", 3),
+        ]
+    ]:
+        exercise_id, total = exercise
+        for set_number in range(1, total + 1):
+            response = client.post(
+                f"/api/workouts/{session_id}/sets",
+                json={
+                    "exercise": exercise_id,
+                    "set_number": set_number,
+                    "weight": 0,
+                    "reps": 10,
+                    "rir": 2,
+                    "rest_seconds": 30 if set_number > 1 else 0,
+                },
+            )
+            assert response.status_code == 200
+
+    assert response.get_json()["completed"] is True
+
+    final = client.get(f"/api/workouts/{session_id}").get_json()
+    assert final["ended_at"] is not None
