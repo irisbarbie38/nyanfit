@@ -96,17 +96,51 @@ class SetLog(db.Model):
     workout = db.relationship("WorkoutSession", back_populates="sets")
 
 
-def create_app():
+def create_app(config=None):
     app = Flask(__name__)
-    database_url = os.environ.get("DATABASE_URL")
-    if database_url:
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
-        elif database_url.startswith("postgresql://"):
-            database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
-    if not database_url:
-        raise RuntimeError("DATABASE_URL não configurada.")
-    secret_key = os.environ.get("SECRET_KEY")
+
+    config = config or {}
+
+    testing = config.get("TESTING", False)
+
+    # Produção:
+    #   DATABASE_URL
+    #
+    # Testes:
+    #   DATABASE_URL_TEST
+    #
+    # Assim os testes podem usar outro banco PostgreSQL
+    # na mesma instância/servidor, mas em outro database/schema.
+    if testing:
+        database_url = (
+            config.get("DATABASE_URL")
+            or os.environ.get("DATABASE_URL_TEST")
+        )
+        if not database_url:
+            raise RuntimeError(
+                "DATABASE_URL_TEST não configurada para o ambiente de testes."
+            )
+    else:
+        database_url = (
+            config.get("DATABASE_URL")
+            or os.environ.get("DATABASE_URL")
+        )
+        if not database_url:
+            raise RuntimeError("DATABASE_URL não configurada.")
+
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace(
+            "postgres://", "postgresql+psycopg://", 1
+        )
+    elif database_url.startswith("postgresql://"):
+        database_url = database_url.replace(
+            "postgresql://", "postgresql+psycopg://", 1
+        )
+
+    secret_key = (
+        config.get("SECRET_KEY")
+        or os.environ.get("SECRET_KEY")
+    )
     if not secret_key:
         raise RuntimeError("SECRET_KEY não configurada.")
 
@@ -114,15 +148,24 @@ def create_app():
         SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 300},
+        SQLALCHEMY_ENGINE_OPTIONS={
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
+        },
         MAX_CONTENT_LENGTH=1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
-        SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "true").lower() == "true",
+        SESSION_COOKIE_SECURE=os.environ.get(
+            "COOKIE_SECURE", "true"
+        ).lower() == "true",
+        TESTING=testing,
     )
+
     db.init_app(app)
     migrate.init_app(app, db)
-    logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO")
+    )
 
     @app.context_processor
     def inject_user():
