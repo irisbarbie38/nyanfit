@@ -3,7 +3,8 @@ import {
   getWorkout,
   nextPosition,
   advancePosition,
-  validateSet
+  validateSet,
+  suggestSetDefaults
 } from "./workout-state.js";
 
 let workoutId = null;
@@ -34,6 +35,9 @@ const modalProgress = $("#modalProgress");
 const modalDay = $("#modalDay");
 const startSetButton = $("#startSet");
 const program = JSON.parse($("#programData")?.textContent || "[]");
+const userProfile = JSON.parse(
+  $("#userProfileData")?.textContent || "{}"
+);
 
 function formatTime(seconds) {
   const safe = Math.max(0, Number(seconds) || 0);
@@ -279,13 +283,30 @@ function updateExerciseView() {
 
   setActive = false;
 
-  ["#weight", "#reps", "#rir"].forEach((selector) => {
-    const element = $(selector);
+  const exercise = workout.exercises[exerciseIndex];
 
-    if (element) {
-      element.value = "";
-    }
+  const defaults = suggestSetDefaults({
+    height: userProfile.height,
+    weight: userProfile.weight,
+    exercise
   });
+
+  const weightInput = $("#weight");
+  const repsInput = $("#reps");
+  const rirInput = $("#rir");
+
+  if (weightInput) {
+    weightInput.value = defaults.weight;
+  }
+
+  if (repsInput) {
+    repsInput.value = defaults.reps;
+  }
+
+  if (rirInput) {
+    const match = String(exercise?.rir || "").match(/\d+/);
+    rirInput.value = match ? match[0] : "";
+  }
 
   if (startSetButton) {
     startSetButton.disabled = false;
@@ -769,7 +790,7 @@ function init() {
   $("#navProfile")?.addEventListener(
     "click",
     () => {
-      location.href = "/logout";
+      location.href = "/profile";
     }
   );
 

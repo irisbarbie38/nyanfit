@@ -68,10 +68,36 @@ EXERCISE_ICON = {
 
 
 def workout_definition(day):
-    return next((w for w in WORKOUTS if w["day"] == day), WORKOUTS[0])
+    return next(
+        (w for w in WORKOUTS if w["day"] == day),
+        WORKOUTS[0],
+    )
+
+
+def find_exercise(day, value):
+    """
+    Resolve um exercício pelo ID ou pelo nome.
+
+    O banco sempre armazena o ID canônico.
+    """
+    definition = workout_definition(day)
+    value = str(value or "").strip()
+
+    if not value:
+        return None
+
+    for exercise in definition["exercises"]:
+        if value == exercise["id"] or value == exercise["name"]:
+            return exercise
+
+    return None
 
 
 def workout_is_complete(workout_session):
+    """
+    Verifica se todas as séries previstas para todos os exercícios
+    daquele dia foram registradas.
+    """
     definition = workout_definition(workout_session.workout_day)
 
     for exercise in definition["exercises"]:
@@ -89,11 +115,21 @@ def workout_is_complete(workout_session):
     return True
 
 
+def exercise_set_count(workout_session, exercise_id):
+    return sum(
+        1
+        for item in workout_session.sets
+        if item.exercise == exercise_id
+    )
+
+
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
+    height = db.Column(db.Float(), nullable=True)
+    weight = db.Column(db.Float(), nullable=True)
     created_at = db.Column(db.DateTime(), nullable=False, default=utcnow)
     sessions = db.relationship("WorkoutSession", back_populates="user", cascade="all, delete-orphan")
 
@@ -185,9 +221,10 @@ def create_app(config=None):
         MAX_CONTENT_LENGTH=1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
-        SESSION_COOKIE_SECURE=os.environ.get(
-            "COOKIE_SECURE", "true"
-        ).lower() == "true",
+        SESSION_COOKIE_SECURE=config.get(
+            "SESSION_COOKIE_SECURE",
+            os.environ.get("COOKIE_SECURE", "true").lower() == "true",
+        ),
         TESTING=testing,
     )
 
@@ -232,23 +269,20 @@ def create_app(config=None):
             query = query.where(WorkoutSession.ended_at.is_(None))
         return db.session.scalar(query)
 
-    def session_is_complete(ws):
-        workout = workout_definition(ws.workout_day)
-
-        for exercise in workout["exercises"]:
-            count = sum(
-                1
-                for item in ws.sets
-                if item.exercise == exercise["id"]
-            )
-            if count < exercise["sets"]:
-                return False
-
-        return True
-
     @app.get("/")
     @login_required
     def index():
+        user = db.session.get(User, session["user_id"])
+
+        if user is None:
+            session.clear()
+            return redirect(url_for("login"))
+
+        # Altura e peso são necessários para calcular
+        # as cargas iniciais sugeridas.
+        if user.height is None or user.weight is None:
+            return redirect(url_for("profile", next="/"))
+
         today = date.today()
         default_day = min(today.weekday(), 4)
         uid = session["user_id"]
@@ -288,6 +322,128 @@ def create_app(config=None):
             focus=workout_definition(default_day)["name"],
             weekdays=WEEKDAYS,
             exercise_icon=EXERCISE_ICON,
+            user_profile={
+                "height": float(user.height),
+                "weight": float(user.weight),
+            },
+        )
+
+    @app.route("/profile", methods=["GET", "POST"])
+    @login_required
+    def profile():
+        user = db.session.get(User, session["user_id"])
+
+        if user is None:
+            session.clear()
+            return redirect(url_for("login"))
+
+        error = None
+
+        if request.method == "POST":
+            try:
+                height = float(request.form.get("height", ""))
+                weight = float(request.form.get("weight", ""))
+            except (TypeError, ValueError):
+                height = None
+                weight = None
+
+            if (
+                height is None
+                or weight is None
+                or not 100 <= height <= 250
+                or not 20 <= weight <= 400
+            ):
+                error = (
+                    "Informe altura entre 100 e 250 cm "
+                    "e peso entre 20 e 400 kg."
+                )
+
+                return render_template(
+                    "profile.html",
+                    user=user,
+                    error=error,
+                    next=request.args.get("next", "/"),
+                ), 400
+
+                return render_template(
+                    "profile.html",
+                    user=user,
+                    error=error,
+                    next=request.args.get("next", "/"),
+                ), 400
+            else:
+                user.height = height
+                user.weight = weight
+                db.session.commit()
+
+                destination = (
+                    request.args.get("next")
+                    or request.form.get("next")
+                    or "/"
+                )
+
+                if not destination.startswith("/"):
+                    destination = "/"
+
+                return redirect(destination)
+
+        return render_template(
+            "profile.html",
+            user=user,
+            error=error,
+            next=request.args.get("next", "/"),
+        )
+
+    @app.get("/api/profile")
+    @login_required
+    def api_profile():
+        user = db.session.get(User, session["user_id"])
+
+        if user is None:
+            return jsonify(error="user_not_found"), 404
+
+        return jsonify(
+            username=user.username,
+            height=user.height,
+            weight=user.weight,
+            complete=(
+                user.height is not None
+                and user.weight is not None
+            ),
+        )
+
+    @app.patch("/api/profile")
+    @login_required
+    def update_profile():
+        user = db.session.get(User, session["user_id"])
+
+        if user is None:
+            return jsonify(error="user_not_found"), 404
+
+        data = request.get_json(silent=True) or {}
+
+        try:
+            height = float(data.get("height"))
+            weight = float(data.get("weight"))
+        except (TypeError, ValueError):
+            return jsonify(error="invalid_profile"), 400
+
+        if not 100 <= height <= 250:
+            return jsonify(error="invalid_profile"), 400
+
+        if not 20 <= weight <= 400:
+            return jsonify(error="invalid_profile"), 400
+
+        user.height = height
+        user.weight = weight
+        db.session.commit()
+
+        return jsonify(
+            ok=True,
+            username=user.username,
+            height=user.height,
+            weight=user.weight,
+            complete=True,
         )
 
     @app.route("/login", methods=["GET", "POST"])
@@ -333,12 +489,20 @@ def create_app(config=None):
     @login_required
     def api_session_start():
         data = request.get_json(silent=True) or {}
+
+        raw_day = data.get("workout_day", data.get("day"))
+
+        if raw_day is None:
+            return jsonify(error="invalid_workout_day"), 400
+
         try:
-            day = int(data.get("workout_day", data.get("day", 0)))
+            day = int(raw_day)
         except (TypeError, ValueError):
             return jsonify(error="invalid_workout_day"), 400
+
         if day not in range(5):
             return jsonify(error="invalid_workout_day"), 400
+
         existing = db.session.scalar(
             db.select(WorkoutSession).where(
                 WorkoutSession.user_id == session["user_id"],
@@ -431,29 +595,61 @@ def create_app(config=None):
             or rest_seconds < 0
         ):
             return jsonify(error="invalid_fields"), 400
+
         ws = owned_session(sid, only_open=True)
+
         if not ws:
             return jsonify(error="invalid_session"), 400
+
         if ws.workout_day != day:
             return jsonify(error="workout_day_mismatch"), 400
+
+        exercise = find_exercise(day, data["exercise_name"])
+
+        if not exercise:
+            return jsonify(error="invalid_exercise"), 400
+
+        if set_number > exercise["sets"]:
+            return jsonify(error="invalid_set_number"), 400
+
+        if exercise_set_count(ws, exercise["id"]) >= exercise["sets"]:
+            return jsonify(error="exercise_complete"), 400
+
+        existing = db.session.scalar(
+            db.select(SetLog).where(
+                SetLog.workout_id == ws.id,
+                SetLog.exercise == exercise["id"],
+                SetLog.set_number == set_number,
+            )
+        )
+
+        if existing:
+            return jsonify(error="duplicate_set"), 409
+
         item = SetLog(
-            workout_id=ws.id,
+            workout=ws,
             workout_day=day,
-            exercise=str(data["exercise_name"])[:120],
+            exercise=exercise["id"],
             set_number=set_number,
             weight=weight,
             reps=reps,
             rir=rir,
             rest_seconds=rest_seconds,
         )
-        db.session.add(item)
 
-        # O treino termina automaticamente na última série prevista.
-        complete = session_is_complete(ws)
+        ws.sets.append(item)
+
+        complete = workout_is_complete(ws)
+
         if complete:
             ws.ended_at = utcnow()
 
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            app.logger.exception("Falha ao registrar série")
+            return jsonify(error="set_save_failed"), 500
         return jsonify(
             ok=True,
             id=item.id,
@@ -510,27 +706,58 @@ def create_app(config=None):
             or rest_seconds < 0
         ):
             return jsonify(error="invalid_fields"), 400
+
+        exercise = find_exercise(ws.workout_day, data["exercise"])
+
+        if not exercise:
+            return jsonify(error="invalid_exercise"), 400
+
+        if set_number > exercise["sets"]:
+            return jsonify(error="invalid_set_number"), 400
+
+        if exercise_set_count(ws, exercise["id"]) >= exercise["sets"]:
+            return jsonify(error="exercise_complete"), 400
+
+        existing = db.session.scalar(
+            db.select(SetLog).where(
+                SetLog.workout_id == ws.id,
+                SetLog.exercise == exercise["id"],
+                SetLog.set_number == set_number,
+            )
+        )
+
+        if existing:
+            return jsonify(error="duplicate_set"), 409
+
         item = SetLog(
-            workout_id=ws.id,
+            workout=ws,
             workout_day=ws.workout_day,
-            exercise=str(data["exercise"])[:120],
+            exercise=exercise["id"],
             set_number=set_number,
             weight=weight,
             reps=reps,
             rir=rir,
             rest_seconds=rest_seconds,
         )
-        db.session.add(item)
 
-        if workout_is_complete(ws):
+        ws.sets.append(item)
+
+        complete = workout_is_complete(ws)
+
+        if complete:
             ws.ended_at = utcnow()
 
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            app.logger.exception("Falha ao registrar série")
+            return jsonify(error="set_save_failed"), 500
 
         return jsonify(
             ok=True,
             id=item.id,
-            completed=bool(ws.ended_at),
+            completed=complete,
             ended_at=ws.ended_at.isoformat() if ws.ended_at else None,
         )
 
@@ -577,30 +804,70 @@ def create_app(config=None):
     @app.get("/api/progression")
     @login_required
     def api_progression():
-        names = sorted({e["name"] for w in WORKOUTS for e in w["exercises"]})
+        """
+        Retorna progressão agrupada pelo nome amigável.
+
+        O banco usa somente exercise.id.
+        """
         result = {}
-        for name in names:
+
+        exercises = {}
+
+        for workout in WORKOUTS:
+            for exercise in workout["exercises"]:
+                exercises[exercise["id"]] = exercise["name"]
+
+        for exercise_id, name in exercises.items():
             rows = db.session.scalars(
-                db.select(SetLog).join(WorkoutSession).where(
-                    WorkoutSession.user_id == session["user_id"], SetLog.exercise == name
-                ).order_by(SetLog.created_at.asc(), SetLog.id.asc()).limit(500)
+                db.select(SetLog)
+                .join(WorkoutSession)
+                .where(
+                    WorkoutSession.user_id == session["user_id"],
+                    SetLog.exercise == exercise_id,
+                )
+                .order_by(
+                    SetLog.created_at.asc(),
+                    SetLog.id.asc(),
+                )
+                .limit(500)
             ).all()
+
             by_day = {}
+
             for row in rows:
-                by_day.setdefault(row.created_at.date().isoformat(), []).append(row)
+                by_day.setdefault(
+                    row.created_at.date().isoformat(),
+                    [],
+                ).append(row)
+
             points = []
+
             for day, values in by_day.items():
                 valid = [x for x in values if x.reps]
+
                 if not valid:
                     continue
-                best = max(valid, key=lambda x: (x.weight, x.reps))
+
+                best = max(
+                    valid,
+                    key=lambda x: (x.weight, x.reps),
+                )
+
                 points.append({
                     "date": day,
                     "weight": float(best.weight or 0),
                     "reps": int(best.reps),
-                    "volume": round(sum((x.weight or 0) * (x.reps or 0) for x in valid), 1),
+                    "volume": round(
+                        sum(
+                            (x.weight or 0) * (x.reps or 0)
+                            for x in valid
+                        ),
+                        1,
+                    ),
                 })
+
             result[name] = points
+
         return jsonify(result)
 
     @app.get("/api/sessions")

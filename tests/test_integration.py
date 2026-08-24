@@ -32,10 +32,41 @@ def login(client, username="integration", password="password123"):
     )
 
 
+def complete_profile(client):
+    response = client.post(
+        "/profile",
+        data={
+            "height": "168",
+            "weight": "64",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+
 def test_public_auth_flow(client):
     response = register(client)
 
     assert response.status_code == 302
+
+    response = client.get("/")
+
+    # Usuário recém-cadastrado ainda não possui altura/peso.
+    # O comportamento correto é exigir o preenchimento do perfil.
+    assert response.status_code == 302
+    assert "/profile" in response.headers["Location"]
+
+    response = client.post(
+        "/profile",
+        data={
+            "height": "168",
+            "weight": "64",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/")
 
     response = client.get("/")
 
@@ -78,6 +109,7 @@ def test_invalid_login_is_rejected(client):
 
 def test_all_five_workout_days_are_exposed(client, user):
     login_as(client, user)
+    complete_profile(client)
 
     response = client.get("/")
 
@@ -521,6 +553,7 @@ def test_start_workout_creates_session(client, user):
 
 def test_dashboard_contains_workout_start_controls(client, user):
     login_as(client, user)
+    complete_profile(client)
 
     response = client.get("/")
 

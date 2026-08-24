@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#03030d">
+<title>NyanFit · Perfil</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+
+<body>
+<main class="profile-page">
+  <section class="profile-card">
+
+    <div class="profile-cat">🐱</div>
+
+    <h1>SEU PERFIL</h1>
+
+    <p class="profile-subtitle">
+      Informe seus dados para o NyanFit calcular
+      as cargas iniciais dos exercícios.
+    </p>
+
+    {% if error %}
+      <div class="profile-error">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="post">
+
+      <input
+        type="hidden"
+        name="next"
+        value="{{ next }}"
+      >
+
+      <label for="height">
+        Altura (cm)
+      </label>
+
+      <input
+        id="height"
+        name="height"
+        type="number"
+        min="100"
+        max="250"
+        step="0.1"
+        value="{{ user.height if user.height is not none else '' }}"
+        required
+        autofocus
+      >
+
+      <label for="weight">
+        Peso (kg)
+      </label>
+
+      <input
+        id="weight"
+        name="weight"
+        type="number"
+        min="20"
+        max="400"
+        step="0.1"
+        value="{{ user.weight if user.weight is not none else '' }}"
+        required
+      >
+
+      <button type="submit">
+        SALVAR PERFIL
+      </button>
+
+    </form>
+
+    <a href="{{ next or '/' }}">
+      Voltar
+    </a>
+
+  </section>
+</main>
+</body>
+</html>

@@ -16,6 +16,16 @@ def app():
     with test_app.app_context():
         db.create_all()
 
+        # Todo teste começa com um usuário válido.
+        # Isso evita que testes de autenticação/perfil dependam
+        # da execução de outro teste para criar o usuário.
+        user = User(
+            username="integration-user",
+            password_hash=generate_password_hash("password123"),
+        )
+        db.session.add(user)
+        db.session.commit()
+
     yield test_app
 
     with test_app.app_context():
@@ -33,24 +43,18 @@ def client(app):
 @pytest.fixture()
 def user(app):
     with app.app_context():
-        user = User(
-            username="integration-user",
-            password_hash=generate_password_hash("password123"),
+        user = db.session.scalar(
+            db.select(User).where(
+                User.username == "integration-user"
+            )
         )
-        db.session.add(user)
-        db.session.commit()
 
-        # Materializa os atributos antes de o contexto ser encerrado.
-        user_id = user.id
-        username = user.username
-
-    # Retorna um objeto simples, não uma instância SQLAlchemy detached.
-    return type(
-        "TestUser",
-        (),
-        {
-            "id": user_id,
-            "username": username,
-            "password": "password123",
-        },
-    )()
+        return type(
+            "TestUser",
+            (),
+            {
+                "id": user.id,
+                "username": user.username,
+                "password": "password123",
+            },
+        )()

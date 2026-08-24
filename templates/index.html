@@ -41,7 +41,7 @@
       {% endfor %}
     </section>
 
-    <button type="button" id="startWorkout" class="hotspot start-hotspot" aria-label="Iniciar treino">
+    <button type="button" id="startWorkout" class="dynamic hotspot start-hotspot" aria-label="Iniciar treino">
       <span>INICIAR TREINO</span>
     </button>
 
@@ -78,6 +78,7 @@
 </div>
 
 <script id="programData" type="application/json">{{ workouts|tojson }}</script>
+<script id="userProfileData" type="application/json">{{ user_profile|tojson }}</script>
 
 <div id="workoutModal" class="modal hidden">
   <div class="modal-card">

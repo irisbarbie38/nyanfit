@@ -28,3 +28,87 @@
 .day-button.active{border-color:#ff4fa4;background:#40113d;color:#fff;box-shadow:0 0 0 1px #9f1d75 inset}
 .day-button:focus-visible{outline:2px solid #fff;outline-offset:2px}
 #modalDay{font-family:monospace;color:#c05bff;font-size:12px;margin-bottom:5px}
+
+
+.profile-page{
+    min-height:100vh;
+    width:100%;
+    display:grid;
+    place-items:center;
+    padding:24px;
+    background:#03030d;
+    color:#f5f1ff;
+}
+
+.profile-card{
+    width:min(100%,430px);
+    background:#0c0c24;
+    border:1px solid #4c327e;
+    border-radius:18px;
+    padding:28px;
+    box-shadow:0 20px 60px #000;
+}
+
+.profile-cat{
+    text-align:center;
+    font-size:42px;
+}
+
+.profile-card h1{
+    margin:8px 0 10px;
+    text-align:center;
+    color:#ff55a7;
+    font-family:monospace;
+}
+
+.profile-subtitle{
+    margin:0 0 22px;
+    text-align:center;
+    color:#aaa4d0;
+    line-height:1.45;
+}
+
+.profile-card label{
+    display:block;
+    margin:14px 0 6px;
+    color:#ddd4ff;
+    font-family:monospace;
+}
+
+.profile-card input{
+    width:100%;
+    padding:13px;
+    border:1px solid #37305d;
+    border-radius:9px;
+    background:#171735;
+    color:#fff;
+}
+
+.profile-card button{
+    width:100%;
+    height:54px;
+    margin-top:20px;
+    border:2px solid #a70c6e;
+    border-radius:12px;
+    background:linear-gradient(180deg,#ff4c9f,#ee197f);
+    color:#fff;
+    font-family:monospace;
+    font-weight:800;
+    cursor:pointer;
+}
+
+.profile-card>a{
+    display:block;
+    margin-top:18px;
+    text-align:center;
+    color:#c05bff;
+    text-decoration:none;
+}
+
+.profile-error{
+    padding:10px;
+    border-radius:9px;
+    background:#3a122f;
+    color:#ff9dcc;
+    font-size:13px;
+}
