@@ -1,7 +1,17 @@
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from functools import wraps
+
+
+
+def utcnow():
+    """Return the current UTC time as a naive datetime.
+
+    Kept naive for compatibility with the existing SQLAlchemy
+    DateTime columns, while avoiding deprecated datetime.utcnow().
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from flask_migrate import Migrate
@@ -84,7 +94,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime(), nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(), nullable=False, default=utcnow)
     sessions = db.relationship("WorkoutSession", back_populates="user", cascade="all, delete-orphan")
 
 
@@ -94,7 +104,7 @@ class WorkoutSession(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     workout_day = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     focus = db.Column(db.String(120), nullable=False)
-    started_at = db.Column(db.DateTime(), nullable=False, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime(), nullable=False, default=utcnow)
     ended_at = db.Column(db.DateTime())
     user = db.relationship("User", back_populates="sessions")
     sets = db.relationship("SetLog", back_populates="workout", cascade="all, delete-orphan")
@@ -111,7 +121,7 @@ class SetLog(db.Model):
     reps = db.Column(db.Integer, nullable=False, default=0)
     rir = db.Column(db.Integer)
     rest_seconds = db.Column(db.Integer, nullable=False, default=0, server_default="0")
-    created_at = db.Column(db.DateTime(), nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime(), nullable=False, default=utcnow, index=True)
     workout = db.relationship("WorkoutSession", back_populates="sets")
 
 
@@ -330,7 +340,7 @@ def create_app(config=None):
             user_id=session["user_id"],
             workout_day=day,
             focus=workout_definition(day)["name"],
-            started_at=datetime.utcnow(),
+            started_at=utcnow(),
         )
         db.session.add(ws)
         db.session.commit()
@@ -347,7 +357,7 @@ def create_app(config=None):
         ws = owned_session(sid, only_open=True)
         if not ws:
             return jsonify(error="session_not_found"), 404
-        ws.ended_at = datetime.utcnow()
+        ws.ended_at = utcnow()
         sets = list(ws.sets)
         volume = sum((x.weight or 0) * (x.reps or 0) for x in sets)
         db.session.commit()
@@ -429,7 +439,7 @@ def create_app(config=None):
         # O treino termina automaticamente na última série prevista.
         complete = session_is_complete(ws)
         if complete:
-            ws.ended_at = datetime.utcnow()
+            ws.ended_at = utcnow()
 
         db.session.commit()
         return jsonify(
@@ -501,7 +511,7 @@ def create_app(config=None):
         db.session.add(item)
 
         if workout_is_complete(ws):
-            ws.ended_at = datetime.utcnow()
+            ws.ended_at = utcnow()
 
         db.session.commit()
 
@@ -518,7 +528,7 @@ def create_app(config=None):
         ws = owned_session(workout_id, only_open=True)
         if not ws:
             return jsonify(error="session_not_found"), 404
-        ws.ended_at = datetime.utcnow()
+        ws.ended_at = utcnow()
         db.session.commit()
         return jsonify(ok=True)
 
@@ -539,7 +549,7 @@ def create_app(config=None):
     @app.get("/api/stats")
     @login_required
     def api_stats():
-        now = datetime.utcnow()
+        now = utcnow()
         week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
         sets = db.session.scalars(db.select(SetLog).join(WorkoutSession).where(
             WorkoutSession.user_id == session["user_id"], SetLog.created_at >= week_start
