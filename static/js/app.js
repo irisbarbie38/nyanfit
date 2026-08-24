@@ -717,6 +717,7 @@ function init() {
       );
     });
 
+  renderDay();
   restoreWorkout();
 
   $("#startWorkout")?.addEventListener(

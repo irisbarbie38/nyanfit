@@ -40,3 +40,111 @@ describe("NyanFit frontend contract", () => {
     expect(document.getElementById("timer").textContent).toBe("00:00");
   });
 });
+
+test("INICIAR TREINO cria a sessão e abre o modal", async () => {
+  document.body.innerHTML = `
+    <button id="startWorkout">INICIAR TREINO</button>
+
+    <button class="day-button active" data-day="0">SEG</button>
+
+    <div id="focusValue"></div>
+
+    <section id="exerciseList"></section>
+
+    <div id="workoutModal" class="hidden">
+      <span id="modalExercise"></span>
+      <span id="modalProgress"></span>
+      <span id="modalDay"></span>
+      <span id="timer">00:00</span>
+      <input id="weight">
+      <input id="reps">
+      <input id="rir">
+      <button id="saveSet"></button>
+      <button id="startSet">INICIAR SÉRIE</button>
+      <button id="closeModal"></button>
+    </div>
+
+    <script id="programData" type="application/json">
+      ${JSON.stringify([
+        {
+          day: 0,
+          name: "Glúteo pesado",
+          exercises: [
+            {
+              id: "hip-thrust",
+              name: "Elevação pélvica",
+              sets: 4,
+              min_reps: 8,
+              max_reps: 12,
+              rir: 2
+            }
+          ]
+        }
+      ])}
+    </script>
+  `;
+
+  const storage = new Map();
+
+  globalThis.localStorage = {
+    getItem: (key) => storage.has(key) ? storage.get(key) : null,
+    setItem: (key, value) => storage.set(key, String(value)),
+    removeItem: (key) => storage.delete(key),
+    clear: () => storage.clear()
+  };
+
+  localStorage.clear();
+
+  const calls = [];
+  globalThis.alert = (message) => { throw new Error(`APP_ALERT: ${message}`); };
+
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+
+    return new Response(
+      JSON.stringify({
+        id: 123,
+        workout_day: 0,
+        ended_at: null,
+        sets: []
+      }),
+      {
+        status: 201,
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+  };
+
+  await import("../../static/js/app.js");
+
+  document
+    .getElementById("startWorkout")
+    .click();
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(calls).toHaveLength(1);
+  expect(calls[0].url).toBe("/api/workouts");
+  expect(calls[0].options.method).toBe("POST");
+
+  const body = JSON.parse(calls[0].options.body);
+
+  expect(body.workout_day).toBe(0);
+  expect(body.day).toBe(0);
+  expect(body.focus).toBe("Glúteo pesado");
+
+  expect(
+    localStorage.getItem("nyanfit-workout")
+  ).toBe("123");
+
+  expect(
+    document.getElementById("workoutModal")
+      .classList.contains("hidden")
+  ).toBe(false);
+
+  expect(
+    document.getElementById("modalExercise").textContent
+  ).toBe("Elevação pélvica");
+});
