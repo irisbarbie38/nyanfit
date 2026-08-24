@@ -470,3 +470,65 @@ def test_finished_workout_rejects_new_sets(client, user):
     )
 
     assert response.status_code == 404
+
+
+def test_stale_session_is_rejected_after_user_is_deleted(client, user):
+    login_as(client, user)
+
+    with client.application.app_context():
+        db.session.query(User).filter_by(id=user.id).delete()
+        db.session.commit()
+
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+    with client.session_transaction() as sess:
+        assert "user_id" not in sess
+
+
+def test_start_workout_creates_session(client, user):
+    login_as(client, user)
+
+    response = client.post(
+        "/api/workouts",
+        json={
+            "workout_day": 0,
+            "day": 0,
+            "focus": WORKOUTS[0]["name"],
+        },
+    )
+
+    assert response.status_code in (200, 201)
+
+    data = response.get_json()
+
+    assert data["ok"] is True
+    assert data["session_id"] > 0
+
+    with client.application.app_context():
+        workout = db.session.get(
+            WorkoutSession,
+            data["session_id"],
+        )
+
+        assert workout is not None
+        assert workout.user_id == user.id
+        assert workout.workout_day == 0
+        assert workout.ended_at is None
+
+
+def test_dashboard_contains_workout_start_controls(client, user):
+    login_as(client, user)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+
+    html = response.get_data(as_text=True)
+
+    assert 'id="startWorkout"' in html
+    assert 'id="programData"' in html
+    assert 'type="module"' in html
+    assert '/static/js/app.js' in html
