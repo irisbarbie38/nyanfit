@@ -3,8 +3,7 @@ import {
   getWorkout,
   nextPosition,
   advancePosition,
-  validateSet,
-  suggestSetDefaults
+  validateSet
 } from "./workout-state.js";
 
 let workoutId = null;
@@ -37,6 +36,10 @@ const startSetButton = $("#startSet");
 const program = JSON.parse($("#programData")?.textContent || "[]");
 const userProfile = JSON.parse(
   $("#userProfileData")?.textContent || "{}"
+);
+
+const userDefaults = JSON.parse(
+  $("#userDefaultsData")?.textContent || "{}"
 );
 
 function formatTime(seconds) {
@@ -247,6 +250,49 @@ function renderDay() {
   resetRest();
 }
 
+
+function applySetDefaults() {
+  const current = getExercises()[exerciseIndex];
+
+  if (!current) {
+    return;
+  }
+
+  const defaults =
+    userDefaults[current.dataset.exercise];
+
+  if (!defaults) {
+    console.warn(
+      "Default não encontrado no banco:",
+      current.dataset.exercise
+    );
+    return;
+  }
+
+  const weightInput = $("#weight");
+  const repsInput = $("#reps");
+  const rirInput = $("#rir");
+
+  if (weightInput) {
+    weightInput.value =
+      defaults.weight ?? "";
+  }
+
+  if (repsInput) {
+    repsInput.value =
+      defaults.reps ?? "";
+  }
+
+  if (rirInput) {
+    rirInput.value =
+      defaults.rir === null ||
+      defaults.rir === undefined
+        ? ""
+        : defaults.rir;
+  }
+}
+
+
 function updateProgress() {
   const current = getExercises()[exerciseIndex];
 
@@ -256,7 +302,7 @@ function updateProgress() {
   }
 }
 
-function updateExerciseView() {
+async function updateExerciseView() {
   const list = getExercises();
   const current = list[exerciseIndex];
   const workout = currentWorkout();
@@ -283,30 +329,7 @@ function updateExerciseView() {
 
   setActive = false;
 
-  const exercise = workout.exercises[exerciseIndex];
-
-  const defaults = suggestSetDefaults({
-    height: userProfile.height,
-    weight: userProfile.weight,
-    exercise
-  });
-
-  const weightInput = $("#weight");
-  const repsInput = $("#reps");
-  const rirInput = $("#rir");
-
-  if (weightInput) {
-    weightInput.value = defaults.weight;
-  }
-
-  if (repsInput) {
-    repsInput.value = defaults.reps;
-  }
-
-  if (rirInput) {
-    const match = String(exercise?.rir || "").match(/\d+/);
-    rirInput.value = match ? match[0] : "";
-  }
+  applySetDefaults();
 
   if (startSetButton) {
     startSetButton.disabled = false;
@@ -397,7 +420,7 @@ async function startWorkout() {
   }
 
   openModal();
-  updateExerciseView();
+  await updateExerciseView();
 }
 
 async function selectExercise(button) {
@@ -441,7 +464,7 @@ async function selectExercise(button) {
   }
 }
 
-function startSeries() {
+async function startSeries() {
   if (setActive) {
     return;
   }
@@ -474,6 +497,7 @@ function startSeries() {
 
     exerciseIndex = position.exerciseIndex;
     setIndex = position.setIndex;
+    applySetDefaults();
   } else {
     /*
      * Primeiro início de série:
@@ -597,6 +621,12 @@ async function saveSet() {
       );
     }
 
+    userDefaults[current.dataset.exercise] = {
+      weight,
+      reps,
+      rir
+    };
+
     const count =
       current.querySelector(".count");
 
@@ -607,10 +637,6 @@ async function saveSet() {
           total
         )}/${total}`;
     }
-
-    $("#weight").value = "";
-    $("#reps").value = "";
-    $("#rir").value = "";
 
     /*
      * O descanso que acabou foi consumido.

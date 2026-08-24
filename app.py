@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
@@ -123,6 +124,145 @@ def exercise_set_count(workout_session, exercise_id):
     )
 
 
+def calculate_bmi(height, weight):
+    try:
+        height = float(height)
+        weight = float(weight)
+    except (TypeError, ValueError):
+        return None
+
+    if height <= 0 or weight <= 0:
+        return None
+
+    return round(weight / ((height / 100) ** 2), 2)
+
+
+def suggest_exercise_default(user, exercise):
+    """
+    Calcula o valor inicial de um exercício.
+
+    Esta função só deve ser usada para criar um default
+    que ainda não existe no banco.
+    """
+    min_reps = int(exercise.get("min_reps") or 8)
+    max_reps = int(exercise.get("max_reps") or min_reps)
+
+    reps = round((min_reps + max_reps) / 2)
+
+    body_weight = float(user.weight or 0)
+    body_height = float(user.height or 0)
+
+    ratio = 0.1
+
+    if body_weight > 0:
+        if body_height > 0:
+            height_factor = max(
+                0.75,
+                min(1.25, body_height / 170),
+            )
+            ratio = 0.1 * height_factor
+
+        exercise_id = str(
+            exercise.get("id") or ""
+        ).lower()
+
+        if (
+            "hip-thrust" in exercise_id
+            or "hip_thrust" in exercise_id
+            or "glute" in exercise_id
+        ):
+            ratio = 0.5
+        elif (
+            "squat" in exercise_id
+            or "smith" in exercise_id
+        ):
+            ratio = 0.3
+        elif (
+            "deadlift" in exercise_id
+            or "rdl" in exercise_id
+            or "stiff" in exercise_id
+        ):
+            ratio = 0.35
+        elif (
+            "row" in exercise_id
+            or "pulldown" in exercise_id
+        ):
+            ratio = 0.15
+
+        raw_weight = body_weight * ratio
+        weight = max(
+            0,
+            round(raw_weight / 2.5) * 2.5,
+        )
+    else:
+        weight = 0
+
+    match = __import__("re").search(
+        r"\d+",
+        str(exercise.get("rir") or ""),
+    )
+    rir = int(match.group(0)) if match else None
+
+    return {
+        "weight": weight,
+        "reps": reps,
+        "rir": rir,
+    }
+
+
+def ensure_user_exercise_defaults(user):
+    """
+    Garante que um usuário com perfil completo tenha um
+    default persistido para cada exercício do programa.
+
+    Defaults existentes NUNCA são recalculados.
+    """
+    if user.height is None or user.weight is None:
+        return {}
+
+    defaults = {}
+
+    for workout in WORKOUTS:
+        for exercise in workout["exercises"]:
+            exercise_id = exercise["id"]
+
+            existing = db.session.scalar(
+                db.select(UserExerciseDefault).where(
+                    UserExerciseDefault.user_id == user.id,
+                    UserExerciseDefault.exercise_id == exercise_id,
+                )
+            )
+
+            if existing is None:
+                values = suggest_exercise_default(
+                    user,
+                    exercise,
+                )
+
+                existing = UserExerciseDefault(
+                    user_id=user.id,
+                    exercise_id=exercise_id,
+                    weight=values["weight"],
+                    reps=values["reps"],
+                    rir=values["rir"],
+                    updated_at=utcnow(),
+                )
+
+                db.session.add(existing)
+
+            defaults[exercise_id] = {
+                "weight": existing.weight,
+                "reps": existing.reps,
+                "rir": existing.rir,
+            }
+
+    db.session.commit()
+
+    return defaults
+
+
+
+
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -130,8 +270,57 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     height = db.Column(db.Float(), nullable=True)
     weight = db.Column(db.Float(), nullable=True)
+    bmi = db.Column(db.Float(), nullable=True)
     created_at = db.Column(db.DateTime(), nullable=False, default=utcnow)
     sessions = db.relationship("WorkoutSession", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserExerciseDefault(db.Model):
+    __tablename__ = "user_exercise_defaults"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    exercise_id = db.Column(
+        db.String(120),
+        nullable=False,
+    )
+
+    weight = db.Column(
+        db.Float,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    reps = db.Column(
+        db.Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    rir = db.Column(db.Integer, nullable=True)
+
+    updated_at = db.Column(
+        db.DateTime(),
+        nullable=False,
+        default=utcnow,
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "exercise_id",
+            name="uq_user_exercise_default",
+        ),
+    )
 
 
 class WorkoutSession(db.Model):
@@ -283,6 +472,10 @@ def create_app(config=None):
         if user.height is None or user.weight is None:
             return redirect(url_for("profile", next="/"))
 
+        # Usuários antigos podem ainda não ter defaults.
+        # Neste caso eles são criados uma única vez.
+        user_defaults = ensure_user_exercise_defaults(user)
+
         today = date.today()
         default_day = min(today.weekday(), 4)
         uid = session["user_id"]
@@ -325,7 +518,9 @@ def create_app(config=None):
             user_profile={
                 "height": float(user.height),
                 "weight": float(user.weight),
+                "bmi": float(user.bmi) if user.bmi is not None else None,
             },
+            user_defaults=user_defaults,
         )
 
     @app.route("/profile", methods=["GET", "POST"])
@@ -374,6 +569,13 @@ def create_app(config=None):
             else:
                 user.height = height
                 user.weight = weight
+                user.bmi = calculate_bmi(height, weight)
+
+                # Só cria defaults que ainda não existem.
+                # Se a usuária já treinou e alterou um valor,
+                # o valor salvo no banco é preservado.
+                ensure_user_exercise_defaults(user)
+
                 db.session.commit()
 
                 destination = (
@@ -406,6 +608,7 @@ def create_app(config=None):
             username=user.username,
             height=user.height,
             weight=user.weight,
+            bmi=user.bmi,
             complete=(
                 user.height is not None
                 and user.weight is not None
@@ -436,6 +639,10 @@ def create_app(config=None):
 
         user.height = height
         user.weight = weight
+        user.bmi = calculate_bmi(height, weight)
+
+        ensure_user_exercise_defaults(user)
+
         db.session.commit()
 
         return jsonify(
@@ -639,6 +846,27 @@ def create_app(config=None):
 
         ws.sets.append(item)
 
+        # A última execução passa a ser o default da próxima série,
+        # do próximo treino e das próximas semanas.
+        default = db.session.scalar(
+            db.select(UserExerciseDefault).where(
+                UserExerciseDefault.user_id == session["user_id"],
+                UserExerciseDefault.exercise_id == exercise["id"],
+            )
+        )
+
+        if default is None:
+            default = UserExerciseDefault(
+                user_id=session["user_id"],
+                exercise_id=exercise["id"],
+            )
+            db.session.add(default)
+
+        default.weight = weight
+        default.reps = reps
+        default.rir = rir
+        default.updated_at = utcnow()
+
         complete = workout_is_complete(ws)
 
         if complete:
@@ -668,8 +896,22 @@ def create_app(config=None):
         ws = owned_session(workout_id)
         if not ws:
             return jsonify(error="not_found"), 404
+        defaults = db.session.scalars(
+            db.select(UserExerciseDefault).where(
+                UserExerciseDefault.user_id == session["user_id"],
+            )
+        ).all()
+
         return jsonify({
             "id": ws.id, "focus": ws.focus, "workout_day": ws.workout_day,
+            "defaults": {
+                item.exercise_id: {
+                    "weight": item.weight,
+                    "reps": item.reps,
+                    "rir": item.rir,
+                }
+                for item in defaults
+            },
             "started_at": ws.started_at.isoformat(),
             "ended_at": ws.ended_at.isoformat() if ws.ended_at else None,
             "sets": [{
@@ -741,6 +983,27 @@ def create_app(config=None):
         )
 
         ws.sets.append(item)
+
+        # A última execução passa a ser o default da próxima série,
+        # do próximo treino e das próximas semanas.
+        default = db.session.scalar(
+            db.select(UserExerciseDefault).where(
+                UserExerciseDefault.user_id == session["user_id"],
+                UserExerciseDefault.exercise_id == exercise["id"],
+            )
+        )
+
+        if default is None:
+            default = UserExerciseDefault(
+                user_id=session["user_id"],
+                exercise_id=exercise["id"],
+            )
+            db.session.add(default)
+
+        default.weight = weight
+        default.reps = reps
+        default.rir = rir
+        default.updated_at = utcnow()
 
         complete = workout_is_complete(ws)
 
