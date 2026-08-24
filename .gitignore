@@ -5,3 +5,8 @@ __pycache__/
 .pytest_cache/
 node_modules/.vite/
 instance/
+
+# Playwright
+playwright-report/
+test-results/
+e2e/.tmp/

@@ -38,7 +38,7 @@ describe("regressões críticas da interface", () => {
     const js = read("static/js/app.js");
 
     expect(js).toContain("startWorkout");
-    expect(js).toContain("/api/session/start");
+    expect(js).toContain("/api/workouts");
   });
 
   it("app.js usa os defaults dos exercícios", () => {
