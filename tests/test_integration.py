@@ -356,3 +356,117 @@ def test_finished_session_cannot_be_finished_again(client, user):
     )
 
     assert second.status_code in (400, 404)
+
+
+def test_workout_finishes_automatically_after_all_required_sets(client, user):
+    login_as(client, user)
+
+    day = 0
+    workout = WORKOUTS[day]
+
+    started = client.post(
+        "/api/session/start",
+        json={"workout_day": day},
+    )
+
+    assert started.status_code in (200, 201)
+
+    session_id = started.get_json()["session_id"]
+
+    for exercise in workout["exercises"]:
+        for set_number in range(1, exercise["sets"] + 1):
+            response = client.post(
+                f"/api/workouts/{session_id}/sets",
+                json={
+                    "exercise": exercise["id"],
+                    "set_number": set_number,
+                    "weight": 10,
+                    "reps": exercise["min_reps"],
+                    "rir": 2,
+                },
+            )
+
+            assert response.status_code == 200
+
+    with client.application.app_context():
+        session = db.session.get(WorkoutSession, session_id)
+
+        assert session is not None
+        assert session.ended_at is not None
+
+
+def test_workout_does_not_finish_before_all_required_sets(client, user):
+    login_as(client, user)
+
+    day = 0
+    workout = WORKOUTS[day]
+
+    started = client.post(
+        "/api/session/start",
+        json={"workout_day": day},
+    )
+
+    assert started.status_code in (200, 201)
+
+    session_id = started.get_json()["session_id"]
+
+    first_exercise = workout["exercises"][0]
+
+    response = client.post(
+        f"/api/workouts/{session_id}/sets",
+        json={
+            "exercise": first_exercise["id"],
+            "set_number": 1,
+            "weight": 10,
+            "reps": first_exercise["min_reps"],
+            "rir": 2,
+        },
+    )
+
+    assert response.status_code == 200
+
+    current = client.get(f"/api/workouts/{session_id}")
+
+    assert current.status_code == 200
+    assert current.get_json()["ended_at"] is None
+
+
+def test_finished_workout_rejects_new_sets(client, user):
+    login_as(client, user)
+
+    day = 0
+    workout = WORKOUTS[day]
+
+    started = client.post(
+        "/api/session/start",
+        json={"workout_day": day},
+    )
+
+    session_id = started.get_json()["session_id"]
+
+    for exercise in workout["exercises"]:
+        for set_number in range(1, exercise["sets"] + 1):
+            response = client.post(
+                f"/api/workouts/{session_id}/sets",
+                json={
+                    "exercise": exercise["id"],
+                    "set_number": set_number,
+                    "weight": 10,
+                    "reps": exercise["min_reps"],
+                    "rir": 2,
+                },
+            )
+            assert response.status_code == 200
+
+    response = client.post(
+        f"/api/workouts/{session_id}/sets",
+        json={
+            "exercise": workout["exercises"][0]["id"],
+            "set_number": 99,
+            "weight": 10,
+            "reps": 10,
+            "rir": 2,
+        },
+    )
+
+    assert response.status_code == 404

@@ -46,3 +46,57 @@ export function validateSet({ weight, reps, rir }) {
   }
   return true;
 }
+
+export function suggestSetDefaults({ height, weight, exercise }) {
+  const minReps = Number(exercise?.min_reps) || 8;
+  const maxReps = Number(exercise?.max_reps) || minReps;
+
+  const reps = Math.round((minReps + maxReps) / 2);
+
+  const bodyWeight = Number(weight);
+  const bodyHeight = Number(height);
+
+  let ratio = 0.1;
+
+  if (Number.isFinite(bodyWeight) && bodyWeight > 0) {
+    if (Number.isFinite(bodyHeight) && bodyHeight > 0) {
+      const heightFactor = Math.max(0.75, Math.min(1.25, bodyHeight / 170));
+      ratio = 0.1 * heightFactor;
+    }
+
+    const exerciseId = String(exercise?.id || "").toLowerCase();
+
+    if (
+      exerciseId.includes("hip-thrust") ||
+      exerciseId.includes("hip_thrust") ||
+      exerciseId.includes("glute")
+    ) {
+      ratio = 0.5;
+    } else if (
+      exerciseId.includes("squat") ||
+      exerciseId.includes("smith")
+    ) {
+      ratio = 0.3;
+    } else if (
+      exerciseId.includes("deadlift") ||
+      exerciseId.includes("rdl")
+    ) {
+      ratio = 0.35;
+    } else if (
+      exerciseId.includes("row") ||
+      exerciseId.includes("pulldown")
+    ) {
+      ratio = 0.15;
+    }
+
+    const rawWeight = bodyWeight * ratio;
+    const weight = Math.max(0, Math.round(rawWeight / 2.5) * 2.5);
+
+    return { weight, reps };
+  }
+
+  return {
+    weight: 0,
+    reps,
+  };
+}

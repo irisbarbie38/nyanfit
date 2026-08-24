@@ -61,6 +61,24 @@ def workout_definition(day):
     return next((w for w in WORKOUTS if w["day"] == day), WORKOUTS[0])
 
 
+def workout_is_complete(workout_session):
+    definition = workout_definition(workout_session.workout_day)
+
+    for exercise in definition["exercises"]:
+        completed_sets = {
+            item.set_number
+            for item in workout_session.sets
+            if item.exercise == exercise["id"]
+        }
+
+        required = set(range(1, exercise["sets"] + 1))
+
+        if not required.issubset(completed_sets):
+            return False
+
+    return True
+
+
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -92,6 +110,7 @@ class SetLog(db.Model):
     weight = db.Column(db.Float, nullable=False, default=0)
     reps = db.Column(db.Integer, nullable=False, default=0)
     rir = db.Column(db.Integer)
+    rest_seconds = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     created_at = db.Column(db.DateTime(), nullable=False, default=datetime.utcnow, index=True)
     workout = db.relationship("WorkoutSession", back_populates="sets")
 
@@ -190,6 +209,20 @@ def create_app(config=None):
         if only_open:
             query = query.where(WorkoutSession.ended_at.is_(None))
         return db.session.scalar(query)
+
+    def session_is_complete(ws):
+        workout = workout_definition(ws.workout_day)
+
+        for exercise in workout["exercises"]:
+            count = sum(
+                1
+                for item in ws.sets
+                if item.exercise == exercise["id"]
+            )
+            if count < exercise["sets"]:
+                return False
+
+        return True
 
     @app.get("/")
     @login_required
@@ -365,9 +398,16 @@ def create_app(config=None):
             reps = int(data["reps"])
             weight = max(0.0, float(data.get("weight") or 0))
             rir = int(data["rir"]) if data.get("rir") not in (None, "", "null") else None
+            rest_seconds = int(data.get("rest_seconds", 0))
         except (TypeError, ValueError):
             return jsonify(error="invalid_fields"), 400
-        if day not in range(5) or set_number < 1 or reps < 1 or (rir is not None and not 0 <= rir <= 5):
+        if (
+            day not in range(5)
+            or set_number < 1
+            or reps < 1
+            or (rir is not None and not 0 <= rir <= 5)
+            or rest_seconds < 0
+        ):
             return jsonify(error="invalid_fields"), 400
         ws = owned_session(sid, only_open=True)
         if not ws:
@@ -382,10 +422,22 @@ def create_app(config=None):
             weight=weight,
             reps=reps,
             rir=rir,
+            rest_seconds=rest_seconds,
         )
         db.session.add(item)
+
+        # O treino termina automaticamente na última série prevista.
+        complete = session_is_complete(ws)
+        if complete:
+            ws.ended_at = datetime.utcnow()
+
         db.session.commit()
-        return jsonify(ok=True, id=item.id)
+        return jsonify(
+            ok=True,
+            id=item.id,
+            complete=complete,
+            ended_at=ws.ended_at.isoformat() if ws.ended_at else None,
+        )
 
     @app.post("/api/workouts")
     @login_required
@@ -402,8 +454,15 @@ def create_app(config=None):
             "id": ws.id, "focus": ws.focus, "workout_day": ws.workout_day,
             "started_at": ws.started_at.isoformat(),
             "ended_at": ws.ended_at.isoformat() if ws.ended_at else None,
-            "sets": [{"id": s.id, "exercise": s.exercise, "set_number": s.set_number,
-                      "weight": s.weight, "reps": s.reps, "rir": s.rir} for s in ws.sets],
+            "sets": [{
+                "id": s.id,
+                "exercise": s.exercise,
+                "set_number": s.set_number,
+                "weight": s.weight,
+                "reps": s.reps,
+                "rir": s.rir,
+                "rest_seconds": s.rest_seconds,
+            } for s in ws.sets],
         })
 
     @app.post("/api/workouts/<int:workout_id>/sets")
@@ -418,9 +477,16 @@ def create_app(config=None):
             reps = int(data.get("reps", 0))
             weight = max(0.0, float(data.get("weight") or 0))
             rir = int(data["rir"]) if data.get("rir") not in (None, "", "null") else None
+            rest_seconds = int(data.get("rest_seconds", 0))
         except (TypeError, ValueError):
             return jsonify(error="invalid_fields"), 400
-        if not data.get("exercise") or set_number < 1 or reps < 1 or (rir is not None and not 0 <= rir <= 5):
+        if (
+            not data.get("exercise")
+            or set_number < 1
+            or reps < 1
+            or (rir is not None and not 0 <= rir <= 5)
+            or rest_seconds < 0
+        ):
             return jsonify(error="invalid_fields"), 400
         item = SetLog(
             workout_id=ws.id,
@@ -432,8 +498,18 @@ def create_app(config=None):
             rir=rir,
         )
         db.session.add(item)
+
+        if workout_is_complete(ws):
+            ws.ended_at = datetime.utcnow()
+
         db.session.commit()
-        return jsonify(ok=True, id=item.id)
+
+        return jsonify(
+            ok=True,
+            id=item.id,
+            completed=bool(ws.ended_at),
+            ended_at=ws.ended_at.isoformat() if ws.ended_at else None,
+        )
 
     @app.post("/api/workouts/<int:workout_id>/finish")
     @login_required
