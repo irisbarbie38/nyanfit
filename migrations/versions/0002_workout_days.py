@@ -1,8 +1,8 @@
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0002_workout_days"
-down_revision = "0001_initial"
+revision = "0003_workout_days"
+down_revision = "0002_rebuild_v61_schema"
 branch_labels = None
 depends_on = None
 

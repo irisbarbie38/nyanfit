@@ -204,11 +204,23 @@ def create_app(config=None):
     def login_required(fn):
         @wraps(fn)
         def wrapped(*args, **kwargs):
-            if "user_id" not in session:
+            user_id = session.get("user_id")
+
+            if user_id is None:
                 if request.path.startswith("/api/"):
                     return jsonify(error="unauthorized"), 401
                 return redirect(url_for("login"))
+
+            user = db.session.get(User, user_id)
+
+            if user is None:
+                session.clear()
+                if request.path.startswith("/api/"):
+                    return jsonify(error="unauthorized"), 401
+                return redirect(url_for("login"))
+
             return fn(*args, **kwargs)
+
         return wrapped
 
     def owned_session(session_id, only_open=False):
