@@ -1,29 +1,19 @@
-import os
-
 import pytest
 
-os.environ.setdefault("SECRET_KEY", "pytest-secret")
-os.environ.setdefault("COOKIE_SECURE", "false")
-
-from app import create_app, db
+from app import create_app, db, User
+from werkzeug.security import generate_password_hash
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 def app():
-    database_url = os.environ.get(
-        "TEST_DATABASE_URL",
-        "sqlite+pysqlite:///:memory:",
-    )
-
     test_app = create_app({
         "TESTING": True,
         "SECRET_KEY": "pytest-secret",
-        "SQLALCHEMY_DATABASE_URI": database_url,
         "SESSION_COOKIE_SECURE": False,
+        "DATABASE_URL": "sqlite+pysqlite:///:memory:",
     })
 
     with test_app.app_context():
-        db.drop_all()
         db.create_all()
 
     yield test_app
@@ -31,6 +21,7 @@ def app():
     with test_app.app_context():
         db.session.remove()
         db.drop_all()
+        db.engine.dispose()
 
 
 @pytest.fixture()
@@ -41,9 +32,6 @@ def client(app):
 
 @pytest.fixture()
 def user(app):
-    from werkzeug.security import generate_password_hash
-    from app import User
-
     with app.app_context():
         user = User(
             username="integration-user",
@@ -52,4 +40,17 @@ def user(app):
         db.session.add(user)
         db.session.commit()
 
-        return user
+        # Materializa os atributos antes de o contexto ser encerrado.
+        user_id = user.id
+        username = user.username
+
+    # Retorna um objeto simples, não uma instância SQLAlchemy detached.
+    return type(
+        "TestUser",
+        (),
+        {
+            "id": user_id,
+            "username": username,
+            "password": "password123",
+        },
+    )()

@@ -1,40 +1,7 @@
 import pytest
 
-from app import app, db, User, WorkoutSession, WORKOUTS
+from app import db, User, WorkoutSession, WORKOUTS
 from werkzeug.security import generate_password_hash
-
-
-@pytest.fixture()
-def client():
-    app.config.update(
-        TESTING=True,
-        WTF_CSRF_ENABLED=False,
-    )
-
-    with app.test_client() as client:
-        with app.app_context():
-            db.create_all()
-
-        yield client
-
-        with app.app_context():
-            db.session.remove()
-
-
-@pytest.fixture()
-def user():
-    with app.app_context():
-        user = User(
-            username="integration-user",
-            password_hash=generate_password_hash("password123"),
-        )
-        db.session.add(user)
-        db.session.commit()
-
-        yield user
-
-        db.session.delete(user)
-        db.session.commit()
 
 
 def login_as(client, user):
@@ -153,7 +120,7 @@ def test_start_each_workout_day(client, user, day):
     assert data["session_id"] > 0
     assert data["workout_day"] == day
 
-    with app.app_context():
+    with client.application.app_context():
         workout = db.session.get(
             WorkoutSession,
             data["session_id"],
@@ -244,7 +211,7 @@ def test_session_finish(client, user):
 
     assert data["ok"] is True
 
-    with app.app_context():
+    with client.application.app_context():
         workout = db.session.get(
             WorkoutSession,
             session_id,
@@ -257,7 +224,7 @@ def test_session_finish(client, user):
 def test_cannot_finish_another_users_session(client, user):
     login_as(client, user)
 
-    with app.app_context():
+    with client.application.app_context():
         other = User(
             username="integration-other",
             password_hash=generate_password_hash("password123"),
@@ -353,7 +320,7 @@ def test_database_session_belongs_to_logged_user(client, user):
 
     session_id = response.get_json()["session_id"]
 
-    with app.app_context():
+    with client.application.app_context():
         workout = db.session.get(
             WorkoutSession,
             session_id,

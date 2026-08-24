@@ -98,6 +98,7 @@ class SetLog(db.Model):
 
 def create_app(config=None):
     app = Flask(__name__)
+    app.json.ensure_ascii = False
 
     config = config or {}
 
