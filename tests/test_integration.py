@@ -532,3 +532,44 @@ def test_dashboard_contains_workout_start_controls(client, user):
     assert 'id="programData"' in html
     assert 'type="module"' in html
     assert '/static/js/app.js' in html
+
+def test_start_workout_creates_session_for_authenticated_user(client, user):
+    login_as(client, user)
+
+    response = client.post(
+        "/api/session/start",
+        json={
+            "workout_day": 0,
+            "day": 0,
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.get_json()
+
+    assert data is not None
+    assert data.get("id") or data.get("session_id")
+
+    session_id = data.get("id") or data.get("session_id")
+
+    with client.application.app_context():
+        workout = db.session.get(WorkoutSession, session_id)
+
+        assert workout is not None
+        assert workout.user_id == user.id
+        assert workout.workout_day == 0
+        assert workout.focus == "Glúteo pesado"
+        assert workout.ended_at is None
+
+
+def test_start_workout_requires_authentication(client):
+    response = client.post(
+        "/api/session/start",
+        json={
+            "workout_day": 0,
+            "day": 0,
+        },
+    )
+
+    assert response.status_code == 401
