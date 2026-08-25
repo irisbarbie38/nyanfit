@@ -86,6 +86,14 @@
     <button class="close" id="closeModal" type="button">×</button>
     <h2>🏋 TREINO</h2>
     <p id="modalDay">SEG · GLÚTEO PESADO</p>
+    <img
+      id="modalExerciseIcon"
+      class="modal-exercise-icon"
+      src="/static/img/v61/placeholder.svg"
+      alt=""
+      aria-hidden="true"
+      draggable="false"
+    >
     <p id="modalExercise">Elevação pélvica</p>
     <p id="modalProgress">SÉRIE 1/4</p>
     <div class="timer"><span id="timer">00:00</span><small>DESCANSO</small></div>
@@ -94,7 +102,7 @@
       <input id="reps" type="number" min="1" placeholder="reps">
       <input id="rir" type="number" min="0" max="5" placeholder="RIR">
     </div>
-    <button id="saveSet" class="save-button" type="button">SALVAR SÉRIE</button>
+    <button id="saveSet" class="save-button hidden" type="button">SALVAR SÉRIE</button>
     <button id="startSet" class="secondary" type="button">INICIAR SÉRIE</button>
   </div>
 </div>
