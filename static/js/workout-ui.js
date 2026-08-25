@@ -56,6 +56,46 @@ export function updateProgress(exerciseIndex, setIndex) {
   }
 }
 
+function updateModalExercise(exerciseIndex) {
+  const current = getExercises()[exerciseIndex];
+
+  if (!current) {
+    return;
+  }
+
+  const title =
+    current.querySelector(".exercise-title");
+
+  const exerciseIcon =
+    current.querySelector(".exercise-icon");
+
+  const modalIcon =
+    document.querySelector("#modalExerciseIcon");
+
+  if (modalExercise && title) {
+    modalExercise.textContent =
+      title.textContent.trim();
+  }
+
+  if (modalIcon && exerciseIcon) {
+    modalIcon.src =
+      exerciseIcon.getAttribute("src");
+
+    modalIcon.alt =
+      title?.textContent.trim() || "";
+
+    modalIcon.removeAttribute("aria-hidden");
+  }
+}
+
+function updateModalDay(workout) {
+  if (modalDay) {
+    modalDay.textContent =
+      `${["SEG", "TER", "QUA", "QUI", "SEX"][workout.day]} · ` +
+      `${workout.name.toUpperCase()}`;
+  }
+}
+
 export function renderDay(
   program,
   selectedDay,
@@ -79,12 +119,15 @@ export function renderDay(
     focus.textContent = workout.name;
   }
 
-  document.querySelectorAll(".day-button").forEach((button) => {
-    button.classList.toggle(
-      "active",
-      Number(button.dataset.day) === Number(workout.day)
-    );
-  });
+  document
+    .querySelectorAll(".day-button")
+    .forEach((button) => {
+      button.classList.toggle(
+        "active",
+        Number(button.dataset.day) ===
+          Number(workout.day)
+      );
+    });
 
   const list = $("#exerciseList");
 
@@ -134,11 +177,16 @@ export function renderDay(
     )
     .join("");
 
-  list.querySelectorAll(".exercise").forEach((button) => {
-    button.addEventListener("click", () => {
-      onExerciseSelect?.(button);
+  list
+    .querySelectorAll(".exercise")
+    .forEach((button) => {
+      button.addEventListener(
+        "click",
+        () => {
+          onExerciseSelect?.(button);
+        }
+      );
     });
-  });
 
   return workout;
 }
@@ -151,13 +199,14 @@ export function updateExerciseView({
   applyDefaults,
   resetRest
 }) {
-  const list = getExercises();
-  const current = list[exerciseIndex];
+  const current =
+    getExercises()[exerciseIndex];
 
   const workout =
     program.find(
       (item) =>
-        Number(item.day) === Number(selectedDay)
+        Number(item.day) ===
+        Number(selectedDay)
     ) ??
     program[0] ??
     null;
@@ -166,19 +215,11 @@ export function updateExerciseView({
     return;
   }
 
-  const title =
-    current.querySelector(".exercise-title");
+  updateModalExercise(
+    exerciseIndex
+  );
 
-  if (modalExercise && title) {
-    modalExercise.textContent =
-      title.textContent.trim();
-  }
-
-  if (modalDay) {
-    modalDay.textContent =
-      `${["SEG", "TER", "QUA", "QUI", "SEX"][workout.day]} · ` +
-      `${workout.name.toUpperCase()}`;
-  }
+  updateModalDay(workout);
 
   updateProgress(
     exerciseIndex,
@@ -189,10 +230,17 @@ export function updateExerciseView({
 
   applyDefaults?.();
 
+  $("#saveSet")?.classList.add(
+    "hidden"
+  );
+
   if (startSetButton) {
     startSetButton.disabled = false;
-    startSetButton.textContent = "INICIAR SÉRIE";
-    startSetButton.classList.remove("hidden");
+    startSetButton.textContent =
+      "INICIAR SÉRIE";
+    startSetButton.classList.remove(
+      "hidden"
+    );
   }
 }
 
@@ -212,7 +260,8 @@ export function updateActiveExercise({
   const workout =
     program.find(
       (item) =>
-        Number(item.day) === Number(selectedDay)
+        Number(item.day) ===
+        Number(selectedDay)
     ) ??
     program[0] ??
     null;
@@ -221,23 +270,19 @@ export function updateActiveExercise({
     return;
   }
 
-  const title =
-    current.querySelector(".exercise-title");
+  updateModalExercise(
+    exerciseIndex
+  );
 
-  if (modalExercise && title) {
-    modalExercise.textContent =
-      title.textContent.trim();
-  }
-
-  if (modalDay) {
-    modalDay.textContent =
-      `${["SEG", "TER", "QUA", "QUI", "SEX"][workout.day]} · ` +
-      `${workout.name.toUpperCase()}`;
-  }
+  updateModalDay(workout);
 
   updateProgress(
     exerciseIndex,
     setIndex
+  );
+
+  $("#saveSet")?.classList.remove(
+    "hidden"
   );
 }
 
@@ -290,21 +335,30 @@ export function updateExerciseCount(
 
   if (count) {
     count.textContent =
-      `${Math.min(setIndex + 1, total)}/${total}`;
+      `${Math.min(
+        setIndex + 1,
+        total
+      )}/${total}`;
   }
 }
 
-export function showStartSetButton(text = "INICIAR SÉRIE") {
+export function showStartSetButton(
+  text = "INICIAR SÉRIE"
+) {
   if (!startSetButton) {
     return;
   }
 
   startSetButton.textContent = text;
-  startSetButton.classList.remove("hidden");
+  startSetButton.classList.remove(
+    "hidden"
+  );
 }
 
 export function hideStartSetButton() {
-  startSetButton?.classList.add("hidden");
+  startSetButton?.classList.add(
+    "hidden"
+  );
 }
 
 export function getStartSetButton() {

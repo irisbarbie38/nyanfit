@@ -364,10 +364,8 @@ async function startSeries() {
   });
 
   hideStartSetButton();
+  document.querySelector("#saveSet")?.classList.remove("hidden");
 
-  document
-    .querySelector("#weight")
-    ?.focus();
 }
 
 async function saveSet() {
@@ -459,6 +457,7 @@ async function saveSet() {
     );
 
     state.setActive = false;
+    document.querySelector("#saveSet")?.classList.add("hidden");
 
     if (
       data.completed ||
@@ -618,3 +617,4 @@ export function getWorkoutId() {
 }
 
 export { renderSelectedDay };
+
